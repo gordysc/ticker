@@ -16,6 +16,13 @@ cmake --build build
 ./build/ticker
 ```
 
+## Run the tests
+Build the project first, then run CTest:
+```bash
+ctest --test-dir build --output-on-failure
+```
+The tests do not open a window.
+
 ## Controls
 - Left and Right arrows: run.
 - Space or Up arrow: jump.

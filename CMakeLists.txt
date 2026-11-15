@@ -79,3 +79,14 @@ target_link_libraries(ticker PRIVATE ticker_core)
 foreach(target ticker_core ticker)
     target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
 endforeach()
+
+# --- Tests ---
+# enable_testing() turns on CTest, CMake's test runner. Each add_test() line
+# registers one program; `ctest` runs them all and reports which failed (a
+# program fails by returning a non-zero exit code).
+enable_testing()
+
+add_executable(world_test tests/world_test.cpp)
+target_link_libraries(world_test PRIVATE ticker_core)
+target_compile_options(world_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME world_test COMMAND world_test)

@@ -88,7 +88,7 @@ double App::Update(double frame_seconds, const Input& input) {
       // as the last frame took. A short frame means a small step, a long
       // frame means a big one.
       const float dt = static_cast<float>(frame_seconds);
-      Step(world_, level_, input, dt);
+      RunStep(input, dt);
       steps_this_frame_ = 1;
       return dt;
     }
@@ -97,7 +97,7 @@ double App::Update(double frame_seconds, const Input& input) {
       // the same size, so the physics is the same at every frame rate.
       // But the game now runs at the speed of the frames: at 15 FPS it
       // gets 15 ticks (a quarter of a second of game time) every second.
-      Step(world_, level_, input, kTickSeconds);
+      RunStep(input, kTickSeconds);
       steps_this_frame_ = 1;
       return kTickSeconds;
     case LoopMode::Accumulator: {
@@ -107,13 +107,25 @@ double App::Update(double frame_seconds, const Input& input) {
       // over a second there are always 60 of them.
       const int ticks = clock_.Advance(frame_seconds);
       for (int i = 0; i < ticks; ++i) {
-        Step(world_, level_, input, kTickSeconds);
+        RunStep(input, kTickSeconds);
       }
       steps_this_frame_ = ticks;
       return ticks * static_cast<double>(kTickSeconds);
     }
   }
   return 0;
+}
+
+void App::RunStep(const Input& input, float dt) {
+  Step(world_, level_, input, dt);
+  if (slow_ticks_) {
+    // Copies a heavy simulation: many enemies, complex physics or a slow
+    // computer. One tick now takes longer in real time (25 ms) than the
+    // game time it simulates (16.7 ms). The accumulator loop cannot keep
+    // up. Each frame takes longer, so the next frame owes more ticks,
+    // which makes it take longer still. This is the "spiral of death".
+    WaitTime(kSlowTickSeconds);
+  }
 }
 
 void App::MeasureGameSpeed(double real_seconds, double game_seconds) {
@@ -145,6 +157,9 @@ void App::HandleFrameKeys() {
   }
   if (IsKeyPressed(KEY_J)) {
     stutter_ = !stutter_;
+  }
+  if (IsKeyPressed(KEY_K)) {
+    slow_ticks_ = !slow_ticks_;
   }
   if (IsKeyPressed(KEY_M)) {
     mode_ = NextLoopMode(mode_);
@@ -179,6 +194,7 @@ void App::Draw() const {
   hud.frame_ms = static_cast<float>(last_frame_seconds_ * 1000);
   hud.frame_rate_cap = frame_rate_cap_;
   hud.stutter = stutter_;
+  hud.slow_ticks = slow_ticks_;
   hud.loop_mode = LoopModeName(mode_);
   hud.game_speed = game_speed_;
   hud.steps_this_frame = steps_this_frame_;

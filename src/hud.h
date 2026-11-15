@@ -22,6 +22,8 @@ struct HudInfo {
   int frame_rate_cap = 0;
   /// @brief True if random short freezes are on.
   bool stutter = false;
+  /// @brief True if every Step() is slowed down on purpose.
+  bool slow_ticks = false;
   /// @brief The name of the loop mode. A string literal, never null.
   const char* loop_mode = "";
   /// @brief Game time divided by real time. 1 means real speed.

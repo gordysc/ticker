@@ -59,6 +59,31 @@ void TestLongFrameGivesSeveralTicks() {
   CHECK(clock.Advance(4 * kTick + 0.001) == 4);
 }
 
+/// @brief Copies frames where each tick costs more real time than it
+/// simulates, and returns the tick count of the last frame.
+/// @param clock The clock to advance.
+/// @param tick_cost Real seconds that one tick takes to run.
+/// @param frames Number of frames.
+/// @return Ticks in the last frame.
+int TicksAfterSlowFrames(FixedStepClock& clock, double tick_cost, int frames) {
+  double frame_seconds = kTick;
+  int ticks = 0;
+  for (int i = 0; i < frames; ++i) {
+    ticks = clock.Advance(frame_seconds);
+    // The next frame is as long as the ticks took, plus 1 ms to draw.
+    frame_seconds = ticks * tick_cost + 0.001;
+  }
+  return ticks;
+}
+
+/// @brief Ticks that cost more than they simulate grow without end.
+void TestSlowTicksSpiral() {
+  FixedStepClock clock(kTick);
+  // 25 ms per 16.7 ms tick: each frame owes about 1.5 times the ticks of
+  // the frame before it. After 20 frames, one frame runs hundreds.
+  CHECK(TicksAfterSlowFrames(clock, 0.025, 20) > 100);
+}
+
 /// @brief Reset() empties the accumulator.
 void TestReset() {
   FixedStepClock clock(kTick);
@@ -79,6 +104,7 @@ int main() {
        TestSixtyTicksPerSecondAtAnyFrameRate},
       {"short frame keeps its time", TestShortFrameKeepsItsTime},
       {"long frame gives several ticks", TestLongFrameGivesSeveralTicks},
+      {"slow ticks spiral", TestSlowTicksSpiral},
       {"reset", TestReset},
   };
   return testing::RunTests(tests);

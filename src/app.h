@@ -18,6 +18,10 @@ namespace ticker {
 inline constexpr std::array<int, 5> kFrameRateCaps = {15, 30, 60, 144, 0};
 /// @brief How long the H key freezes the program, in seconds.
 inline constexpr double kHitchSeconds = 0.25;
+/// @brief How long each Step() takes when the K key turns slow ticks on.
+///
+/// It is longer than one tick (16.7 ms) on purpose. See App::RunStep().
+inline constexpr double kSlowTickSeconds = 0.025;
 /// @brief How many recent frames the frame time graph shows.
 inline constexpr int kFrameHistoryLength = 120;
 
@@ -71,6 +75,11 @@ class App {
   /// @return How many seconds of game time passed.
   double Update(double frame_seconds, const Input& input);
 
+  /// @brief Calls Step() one time, and makes it slow if K asked for that.
+  /// @param input What the player pressed.
+  /// @param dt Seconds to advance.
+  void RunStep(const Input& input, float dt);
+
   /// @brief Updates game_speed_ from the time that passed this frame.
   /// @param real_seconds Real time that passed.
   /// @param game_seconds Game time that passed.
@@ -122,6 +131,8 @@ class App {
   bool hitch_due_ = false;
   /// @brief True if random short freezes are on.
   bool stutter_ = false;
+  /// @brief True if every Step() takes kSlowTickSeconds of real time.
+  bool slow_ticks_ = false;
   /// @brief Picks when the stutter freezes happen, and for how long.
   ///
   /// This is a different generator from the one in the World. The stutter

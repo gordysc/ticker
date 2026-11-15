@@ -105,6 +105,8 @@ void DrawHud(const HudInfo& info) {
                        info.frame_ms, cap));
   lines.Add(TextFormat("stutter %s", info.stutter ? "ON" : "off"),
             info.stutter ? Color{240, 90, 90, 255} : RAYWHITE);
+  lines.Add(TextFormat("slow ticks %s", info.slow_ticks ? "ON (25 ms)" : "off"),
+            info.slow_ticks ? Color{240, 90, 90, 255} : RAYWHITE);
   lines.Add(TextFormat("loop %s", info.loop_mode), Color{255, 196, 87, 255});
   // A game speed more than 2% away from 1 shows in red.
   const bool speed_off = info.game_speed < 0.98f || info.game_speed > 1.02f;
@@ -124,12 +126,13 @@ void DrawHud(const HudInfo& info) {
   // The key list sits at the bottom of the sidebar. A `constexpr` array of
   // `const char*` is built at compile time, and .size() is known there too.
   constexpr Color kDim{150, 156, 175, 255};
-  constexpr std::array<const char*, 5> kKeys = {
+  constexpr std::array<const char*, 6> kKeys = {
       "Left / Right: run      Space / Up: jump",
       "M: next loop mode",
       "1-5: frame rate cap",
       "H: one 250 ms hitch",
       "J: random stutter on / off",
+      "K: slow ticks on / off",
   };
   TextLines keys(
       kPanelX + kPadding,

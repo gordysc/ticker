@@ -144,6 +144,26 @@ void Step(World& world, const Level& level, const Input& input, float dt) {
   const int direction = int{input.right} - int{input.left};
   player.velocity.x = direction * kRunSpeed;
 
+  // Both timers count down by dt and refill when their event happens. A
+  // jump starts when both are above zero: the jump was pressed recently,
+  // and the player stood on the ground recently.
+  if (player.on_ground) {
+    player.coyote_time_left = kCoyoteTime;
+  } else {
+    player.coyote_time_left = std::max(0.0f, player.coyote_time_left - dt);
+  }
+  if (input.jump_pressed) {
+    player.jump_buffer_left = kJumpBufferTime;
+  } else {
+    player.jump_buffer_left = std::max(0.0f, player.jump_buffer_left - dt);
+  }
+  if (player.jump_buffer_left > 0 && player.coyote_time_left > 0) {
+    player.velocity.y = -kJumpSpeed;
+    // Use up both timers, so one press gives one jump.
+    player.jump_buffer_left = 0;
+    player.coyote_time_left = 0;
+  }
+
   // "Semi-implicit Euler" integration: change the velocity first, then
   // move by the new velocity. It is simple and stable, but it is only an
   // estimate of real motion, and the size of the error depends on dt.

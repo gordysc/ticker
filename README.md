@@ -17,4 +17,6 @@ cmake --build build
 ```
 
 ## Controls
+- Left and Right arrows: run.
+- Space or Up arrow: jump.
 - Esc: close the game.

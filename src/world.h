@@ -19,6 +19,10 @@ struct Player {
   Vector2 velocity{};
   /// @brief True if solid ground is directly below the player.
   bool on_ground = false;
+  /// @brief Seconds of coyote time left. See kCoyoteTime.
+  float coyote_time_left = 0;
+  /// @brief Seconds left to use the last jump press. See kJumpBufferTime.
+  float jump_buffer_left = 0;
 };
 
 /// @brief The simulation state: everything that Step() can change.

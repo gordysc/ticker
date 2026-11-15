@@ -17,6 +17,9 @@ struct Input {
   bool left = false;
   /// @brief Run right. Held.
   bool right = false;
+  /// @brief Jump. True only on the frame the key goes down, so each press
+  /// gives one jump.
+  bool jump_pressed = false;
 };
 
 /// @brief Reads the keyboard through raylib.

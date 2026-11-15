@@ -16,6 +16,8 @@ namespace ticker {
 inline constexpr std::array<int, 5> kFrameRateCaps = {15, 30, 60, 144, 0};
 /// @brief How long the H key freezes the program, in seconds.
 inline constexpr double kHitchSeconds = 0.25;
+/// @brief How many recent frames the frame time graph shows.
+inline constexpr int kFrameHistoryLength = 120;
 
 /// @brief The program around the simulation: the game loop, the clock and
 /// the drawing.
@@ -68,6 +70,10 @@ class App {
   /// A `double` holds about 16 significant digits, a `float` about 7. After
   /// a few hours, a float clock could no longer tell two frames apart.
   double last_frame_start_ = 0;
+  /// @brief How long the last frame took, in seconds.
+  double last_frame_seconds_ = 0;
+  /// @brief Recent frame lengths in milliseconds, oldest first.
+  std::array<float, kFrameHistoryLength> frame_history_ms_{};
 
   /// @brief The frame rate cap now in use. 0 means no cap.
   int frame_rate_cap_ = 60;

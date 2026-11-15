@@ -41,6 +41,7 @@ target_compile_options(raylib PRIVATE -w)
 # .cpp file that includes them.
 add_library(ticker_core STATIC
     src/app.cpp
+    src/hud.cpp
     src/input.cpp
     src/level.cpp
     src/random.cpp

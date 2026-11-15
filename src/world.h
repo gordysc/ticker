@@ -28,6 +28,18 @@ struct Player {
   float jump_buffer_left = 0;
 };
 
+/// @brief Measures each jump, so the debug overlay can show how high it went.
+struct JumpStats {
+  /// @brief True from the start of a jump until the player stops rising.
+  bool rising = false;
+  /// @brief The y of the feet when the jump started.
+  float start_feet = 0;
+  /// @brief The smallest y of the feet so far: the highest point.
+  float highest_feet = 0;
+  /// @brief Height of the last finished jump, in pixels.
+  float last_height = 0;
+};
+
 /// @brief The simulation state: everything that Step() can change.
 ///
 /// World is a plain struct of values with no pointers, so a copy of it is
@@ -47,6 +59,8 @@ struct World {
   /// The generator is part of the world, not a global. Its state changes
   /// only inside Step(), so the same inputs always give the same coins.
   Random random{1};
+  /// @brief Measurements of the jumps.
+  JumpStats jump;
 };
 
 /// @brief Makes the world as it is when the game starts.

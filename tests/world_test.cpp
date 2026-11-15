@@ -141,6 +141,20 @@ void TestJumpHeightDependsOnStepSize() {
   CHECK(at_60 < exact);
 }
 
+/// @brief The world's own jump measurement matches the test's measurement.
+void TestJumpStatsRecordHeight() {
+  const Level level(kLevelMap);
+  World world = MakeWorld(level, 1);
+  Run(world, level, Input{}, kFrame60, 30);
+  Input jump;
+  jump.jump_pressed = true;
+  Step(world, level, jump, kFrame60);
+  CHECK(world.jump.rising);
+  Run(world, level, Input{}, kFrame60, 60);
+  CHECK(!world.jump.rising);
+  CHECK(Near(world.jump.last_height, JumpHeight(kFrame60)));
+}
+
 /// @brief One big step can carry the player through the floor.
 void TestBigStepTunnelsThroughFloor() {
   const Level level(kLevelMap);
@@ -245,6 +259,7 @@ int main() {
       {"player lands on floor", TestPlayerLandsOnFloor},
       {"wall stops running", TestWallStopsRunning},
       {"jump height depends on step size", TestJumpHeightDependsOnStepSize},
+      {"jump stats record height", TestJumpStatsRecordHeight},
       {"big step tunnels through floor", TestBigStepTunnelsThroughFloor},
       {"small steps do not tunnel", TestSmallStepsDoNotTunnel},
       {"coyote time", TestCoyoteTime},

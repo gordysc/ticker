@@ -51,7 +51,8 @@ void DrawWorld(const World& world, const Level& level) {
   // inside raylib. The next TextFormat() call can reuse that buffer, so use
   // the text at once and never keep the pointer.
   const char* score = TextFormat("Coins: %d", world.score);
-  DrawText(score, kScreenWidth - 48 - MeasureText(score, 20), 40, 20, RAYWHITE);
+  DrawText(score, kLevelAreaWidth - 48 - MeasureText(score, 20), 40, 20,
+           RAYWHITE);
 }
 
 }  // namespace ticker

@@ -2,9 +2,11 @@
 
 #include <raylib.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <random>
 
+#include "hud.h"
 #include "input.h"
 #include "render.h"
 
@@ -25,8 +27,14 @@ void App::Frame() {
   // last frame to the start of this one. That includes the update, the
   // drawing and any time raylib spent waiting to hold the frame rate.
   const double now = GetTime();
-  const float dt = static_cast<float>(now - last_frame_start_);
+  last_frame_seconds_ = now - last_frame_start_;
   last_frame_start_ = now;
+  const float dt = static_cast<float>(last_frame_seconds_);
+
+  // Drop the oldest entry and add the newest at the end. std::shift_left
+  // (C++20) moves every element one place towards the front.
+  std::shift_left(frame_history_ms_.begin(), frame_history_ms_.end(), 1);
+  frame_history_ms_.back() = static_cast<float>(last_frame_seconds_ * 1000);
 
   // The variable timestep: advance the world by exactly as much time as
   // the last frame took. A short frame means a small step, a long frame
@@ -79,6 +87,16 @@ void App::Draw() const {
   ClearBackground(Color{24, 26, 34, 255});
   DrawLevel(level_);
   DrawWorld(world_, level_);
+
+  HudInfo hud;
+  hud.fps = GetFPS();
+  hud.frame_ms = static_cast<float>(last_frame_seconds_ * 1000);
+  hud.frame_rate_cap = frame_rate_cap_;
+  hud.stutter = stutter_;
+  hud.jump_height = world_.jump.last_height;
+  hud.falls = world_.falls;
+  hud.frame_history_ms = frame_history_ms_;
+  DrawHud(hud);
 }
 
 }  // namespace ticker

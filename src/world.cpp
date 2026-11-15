@@ -180,6 +180,13 @@ void Step(World& world, const Level& level, const Input& input, float dt) {
   }
   if (player.jump_buffer_left > 0 && player.coyote_time_left > 0) {
     player.velocity.y = -kJumpSpeed;
+    const float feet = player.position.y + kPlayerHeight;
+    // Designated initializers (C++20) name each field. The fields must be
+    // listed in the order the struct declares them.
+    world.jump = JumpStats{.rising = true,
+                           .start_feet = feet,
+                           .highest_feet = feet,
+                           .last_height = world.jump.last_height};
     // Use up both timers, so one press gives one jump.
     player.jump_buffer_left = 0;
     player.coyote_time_left = 0;
@@ -201,6 +208,17 @@ void Step(World& world, const Level& level, const Input& input, float dt) {
   below.y += 0.5f;
   player.on_ground = player.velocity.y >= 0 && OverlapsSolid(level, below);
 
+  if (world.jump.rising) {
+    const float feet = player.position.y + kPlayerHeight;
+    world.jump.highest_feet = std::min(world.jump.highest_feet, feet);
+    // The jump peaks when the player stops rising: at the top of the arc,
+    // or earlier if the head hits a ceiling.
+    if (player.velocity.y >= 0) {
+      world.jump.rising = false;
+      world.jump.last_height = world.jump.start_feet - world.jump.highest_feet;
+    }
+  }
+
   if (CheckCollisionRecs(PlayerBox(player), CoinBox(world, level))) {
     ++world.score;
     MoveCoin(world, level);
@@ -213,6 +231,7 @@ void Step(World& world, const Level& level, const Input& input, float dt) {
       p.y < -kOutOfLevelMargin || p.y > size.y + kOutOfLevelMargin) {
     Respawn(world, level);
     ++world.falls;
+    world.jump.rising = false;
   }
 }
 

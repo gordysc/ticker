@@ -14,8 +14,13 @@ namespace ticker {
 // includes the header shares one variable. Without it, each .cpp file would
 // get its own private copy.
 
+/// @brief Width of the level area, in pixels. The level fills the left
+/// part of the window.
+inline constexpr int kLevelAreaWidth = 960;
+/// @brief Width of the debug sidebar to the right of the level, in pixels.
+inline constexpr int kSidebarWidth = 360;
 /// @brief Window width in pixels.
-inline constexpr int kScreenWidth = 960;
+inline constexpr int kScreenWidth = kLevelAreaWidth + kSidebarWidth;
 /// @brief Window height in pixels.
 inline constexpr int kScreenHeight = 704;
 

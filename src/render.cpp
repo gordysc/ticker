@@ -57,4 +57,9 @@ void DrawWorld(const World& world, const Level& level,
            RAYWHITE);
 }
 
+void DrawPlayerOutline(Vector2 position, Color color) {
+  DrawRectangleLinesEx({position.x, position.y, kPlayerWidth, kPlayerHeight}, 2,
+                       color);
+}
+
 }  // namespace ticker

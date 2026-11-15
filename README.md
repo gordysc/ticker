@@ -38,3 +38,5 @@ The tests do not open a window.
 - H: freeze the program for 250 ms one time (a "hitch").
 - J: turn random short freezes ("stutter") on or off.
 - K: make each tick take 25 ms of real time, or go back to normal.
+- S: turn slow motion (0.1 times real speed) on or off.
+- G: show or hide outlines of the player at the last two ticks.

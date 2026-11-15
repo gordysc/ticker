@@ -78,7 +78,9 @@ void App::Frame() {
   frame_history_ms_.back() = static_cast<float>(last_frame_seconds_ * 1000);
 
   input_latch_.AddFrame(ReadInput());
-  const double game_seconds = Update(last_frame_seconds_);
+  // Slow motion shrinks the real time before the loop sees it. The loop
+  // then thinks less time has passed, and runs fewer ticks.
+  const double game_seconds = Update(last_frame_seconds_ * TimeScale());
   MeasureGameSpeed(last_frame_seconds_, game_seconds);
 
   BeginDrawing();
@@ -92,7 +94,8 @@ double App::Update(double frame_seconds) {
     case LoopMode::Variable: {
       // The variable timestep: advance the world by exactly as much time
       // as the last frame took. A short frame means a small step, a long
-      // frame means a big one.
+      // frame means a big one. Slow motion makes dt smaller, which also
+      // changes the physics: the jump is higher in slow motion.
       const float dt = static_cast<float>(frame_seconds);
       RunStep(dt);
       steps_this_frame_ = 1;
@@ -103,6 +106,7 @@ double App::Update(double frame_seconds) {
       // the same size, so the physics is the same at every frame rate.
       // But the game now runs at the speed of the frames: at 15 FPS it
       // gets 15 ticks (a quarter of a second of game time) every second.
+      // Slow motion has no effect in this mode: it ignores the frame time.
       RunStep(kTickSeconds);
       steps_this_frame_ = 1;
       return kTickSeconds;
@@ -140,6 +144,8 @@ void App::RunStep(float dt) {
   }
 }
 
+double App::TimeScale() const { return slow_motion_ ? kSlowMotionScale : 1.0; }
+
 void App::MeasureGameSpeed(double real_seconds, double game_seconds) {
   speed_sample_real_ += real_seconds;
   speed_sample_game_ += game_seconds;
@@ -173,6 +179,12 @@ void App::HandleFrameKeys() {
   if (IsKeyPressed(KEY_K)) {
     slow_ticks_ = !slow_ticks_;
   }
+  if (IsKeyPressed(KEY_S)) {
+    slow_motion_ = !slow_motion_;
+  }
+  if (IsKeyPressed(KEY_G)) {
+    show_ghosts_ = !show_ghosts_;
+  }
   if (IsKeyPressed(KEY_M)) {
     mode_ = NextLoopMode(mode_);
     // Time saved up in another mode does not belong to this one.
@@ -200,6 +212,14 @@ void App::Draw() const {
   ClearBackground(Color{24, 26, 34, 255});
   DrawLevel(level_);
   DrawWorld(world_, level_, DrawnPlayerPosition());
+  if (show_ghosts_) {
+    // The two ticks the drawn player sits between: grey for the one
+    // before, white for the last one. In slow motion, the filled box
+    // slides from the grey outline to the white one.
+    DrawPlayerOutline(previous_world_.player.position,
+                      Color{140, 140, 160, 255});
+    DrawPlayerOutline(world_.player.position, RAYWHITE);
+  }
 
   HudInfo hud;
   hud.fps = GetFPS();
@@ -207,6 +227,7 @@ void App::Draw() const {
   hud.frame_rate_cap = frame_rate_cap_;
   hud.stutter = stutter_;
   hud.slow_ticks = slow_ticks_;
+  hud.time_scale = static_cast<float>(TimeScale());
   hud.loop_mode = LoopModeName(mode_);
   hud.game_speed = game_speed_;
   hud.steps_this_frame = steps_this_frame_;

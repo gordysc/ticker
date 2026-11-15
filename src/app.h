@@ -22,6 +22,8 @@ inline constexpr double kHitchSeconds = 0.25;
 ///
 /// It is longer than one tick (16.7 ms) on purpose. See App::RunStep().
 inline constexpr double kSlowTickSeconds = 0.025;
+/// @brief How fast game time runs while slow motion (the S key) is on.
+inline constexpr double kSlowMotionScale = 0.1;
 /// @brief How many recent frames the frame time graph shows.
 inline constexpr int kFrameHistoryLength = 120;
 
@@ -84,6 +86,10 @@ class App {
   ///
   /// @param dt Seconds to advance.
   void RunStep(float dt);
+
+  /// @brief How fast game time runs compared with real time.
+  /// @return 1 for real speed, less than 1 for slow motion.
+  double TimeScale() const;
 
   /// @brief Updates game_speed_ from the time that passed this frame.
   /// @param real_seconds Real time that passed.
@@ -152,6 +158,10 @@ class App {
   bool stutter_ = false;
   /// @brief True if every Step() takes kSlowTickSeconds of real time.
   bool slow_ticks_ = false;
+  /// @brief True if slow motion is on. See kSlowMotionScale.
+  bool slow_motion_ = false;
+  /// @brief True if Draw() also shows outlines at the last two ticks.
+  bool show_ghosts_ = false;
   /// @brief Picks when the stutter freezes happen, and for how long.
   ///
   /// This is a different generator from the one in the World. The stutter

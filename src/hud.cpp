@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 
 #include "screen.h"
@@ -108,9 +109,12 @@ void DrawHud(const HudInfo& info) {
   lines.Add(TextFormat("slow ticks %s", info.slow_ticks ? "ON (25 ms)" : "off"),
             info.slow_ticks ? Color{240, 90, 90, 255} : RAYWHITE);
   lines.Add(TextFormat("loop %s", info.loop_mode), Color{255, 196, 87, 255});
-  // A game speed more than 2% away from 1 shows in red.
-  const bool speed_off = info.game_speed < 0.98f || info.game_speed > 1.02f;
-  lines.Add(TextFormat("game speed x%.2f", info.game_speed),
+  // A game speed more than 2% away from the time scale shows in red: the
+  // game is not running at the speed it should.
+  const bool speed_off =
+      std::fabs(info.game_speed - info.time_scale) > 0.02f * info.time_scale;
+  lines.Add(TextFormat("game speed x%.2f   time scale x%.2f", info.game_speed,
+                       info.time_scale),
             speed_off ? Color{240, 90, 90, 255} : RAYWHITE);
   lines.Add(TextFormat("steps this frame %d   accumulator %.1f ms",
                        info.steps_this_frame, info.accumulator_ms));
@@ -129,13 +133,15 @@ void DrawHud(const HudInfo& info) {
   // The key list sits at the bottom of the sidebar. A `constexpr` array of
   // `const char*` is built at compile time, and .size() is known there too.
   constexpr Color kDim{150, 156, 175, 255};
-  constexpr std::array<const char*, 6> kKeys = {
+  constexpr std::array<const char*, 8> kKeys = {
       "Left / Right: run      Space / Up: jump",
       "M: next loop mode",
       "1-5: frame rate cap",
       "H: one 250 ms hitch",
       "J: random stutter on / off",
       "K: slow ticks on / off",
+      "S: slow motion on / off",
+      "G: show the last two ticks",
   };
   TextLines keys(
       kPanelX + kPadding,

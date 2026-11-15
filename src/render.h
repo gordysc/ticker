@@ -25,6 +25,11 @@ void DrawLevel(const Level& level);
 ///        player is drawn between two ticks.
 void DrawWorld(const World& world, const Level& level, Vector2 player_position);
 
+/// @brief Draws the outline of the player box, for debugging.
+/// @param position Top-left corner of the box, in pixels.
+/// @param color The line color.
+void DrawPlayerOutline(Vector2 position, Color color);
+
 }  // namespace ticker
 
 #endif  // TICKER_RENDER_H_

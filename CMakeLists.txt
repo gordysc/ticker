@@ -97,3 +97,8 @@ add_executable(clock_test tests/clock_test.cpp)
 target_link_libraries(clock_test PRIVATE ticker_core)
 target_compile_options(clock_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME clock_test COMMAND clock_test)
+
+add_executable(input_test tests/input_test.cpp)
+target_link_libraries(input_test PRIVATE ticker_core)
+target_compile_options(input_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME input_test COMMAND input_test)

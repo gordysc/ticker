@@ -22,6 +22,32 @@ struct Input {
   bool jump_pressed = false;
 };
 
+/// @brief Holds the input from frames until a tick uses it.
+///
+/// Frames and ticks no longer match one to one. With the accumulator, a
+/// fast frame can run no tick, and a slow frame can run several. A key
+/// press is seen on one frame only, so without this class:
+/// - a press on a frame with no tick is lost: the jump never happens;
+/// - a press on a frame with 3 ticks is seen 3 times.
+///
+/// The latch keeps each press until one tick takes it. Held keys (left and
+/// right) are not events, so they simply follow the latest frame.
+class InputLatch {
+ public:
+  /// @brief Adds the input of one frame.
+  /// @param frame The keys as read this frame.
+  void AddFrame(const Input& frame);
+
+  /// @brief Gives the input for one tick, and uses up the presses in it.
+  /// @return The held keys of the latest frame, plus any press that no tick
+  ///         has taken yet.
+  Input TakeForTick();
+
+ private:
+  /// @brief The input that the next tick gets.
+  Input pending_;
+};
+
 /// @brief Reads the keyboard through raylib.
 /// @return The keys that are down now.
 Input ReadInput();

@@ -71,14 +71,16 @@ class App {
 
   /// @brief Advances the world for one frame, in the current loop mode.
   /// @param frame_seconds How long the last frame took.
-  /// @param input What the player pressed.
   /// @return How many seconds of game time passed.
-  double Update(double frame_seconds, const Input& input);
+  double Update(double frame_seconds);
 
   /// @brief Calls Step() one time, and makes it slow if K asked for that.
-  /// @param input What the player pressed.
+  ///
+  /// The input comes from input_latch_, so each press reaches exactly one
+  /// step.
+  ///
   /// @param dt Seconds to advance.
-  void RunStep(const Input& input, float dt);
+  void RunStep(float dt);
 
   /// @brief Updates game_speed_ from the time that passed this frame.
   /// @param real_seconds Real time that passed.
@@ -106,6 +108,8 @@ class App {
   LoopMode mode_ = LoopMode::Accumulator;
   /// @brief Turns frame times into ticks in LoopMode::Accumulator.
   FixedStepClock clock_{kTickSeconds, kMaxTicksPerFrame};
+  /// @brief Keeps each frame's input until a step takes it.
+  InputLatch input_latch_;
   /// @brief How many times Step() ran in the last frame.
   int steps_this_frame_ = 0;
   /// @brief The clock time, in seconds, at the start of the last frame.

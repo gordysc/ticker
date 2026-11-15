@@ -72,7 +72,8 @@ void App::Frame() {
   std::shift_left(frame_history_ms_.begin(), frame_history_ms_.end(), 1);
   frame_history_ms_.back() = static_cast<float>(last_frame_seconds_ * 1000);
 
-  const double game_seconds = Update(last_frame_seconds_, ReadInput());
+  input_latch_.AddFrame(ReadInput());
+  const double game_seconds = Update(last_frame_seconds_);
   MeasureGameSpeed(last_frame_seconds_, game_seconds);
 
   BeginDrawing();
@@ -81,14 +82,14 @@ void App::Frame() {
   EndDrawing();
 }
 
-double App::Update(double frame_seconds, const Input& input) {
+double App::Update(double frame_seconds) {
   switch (mode_) {
     case LoopMode::Variable: {
       // The variable timestep: advance the world by exactly as much time
       // as the last frame took. A short frame means a small step, a long
       // frame means a big one.
       const float dt = static_cast<float>(frame_seconds);
-      RunStep(input, dt);
+      RunStep(dt);
       steps_this_frame_ = 1;
       return dt;
     }
@@ -97,7 +98,7 @@ double App::Update(double frame_seconds, const Input& input) {
       // the same size, so the physics is the same at every frame rate.
       // But the game now runs at the speed of the frames: at 15 FPS it
       // gets 15 ticks (a quarter of a second of game time) every second.
-      RunStep(input, kTickSeconds);
+      RunStep(kTickSeconds);
       steps_this_frame_ = 1;
       return kTickSeconds;
     case LoopMode::Accumulator: {
@@ -107,7 +108,7 @@ double App::Update(double frame_seconds, const Input& input) {
       // over a second there are always 60 of them.
       const int ticks = clock_.Advance(frame_seconds);
       for (int i = 0; i < ticks; ++i) {
-        RunStep(input, kTickSeconds);
+        RunStep(kTickSeconds);
       }
       steps_this_frame_ = ticks;
       return ticks * static_cast<double>(kTickSeconds);
@@ -116,8 +117,8 @@ double App::Update(double frame_seconds, const Input& input) {
   return 0;
 }
 
-void App::RunStep(const Input& input, float dt) {
-  Step(world_, level_, input, dt);
+void App::RunStep(float dt) {
+  Step(world_, level_, input_latch_.TakeForTick(), dt);
   if (slow_ticks_) {
     // Copies a heavy simulation: many enemies, complex physics or a slow
     // computer. One tick now takes longer in real time (25 ms) than the

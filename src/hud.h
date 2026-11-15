@@ -26,6 +26,10 @@ struct HudInfo {
   const char* loop_mode = "";
   /// @brief Game time divided by real time. 1 means real speed.
   float game_speed = 1;
+  /// @brief How many times Step() ran in the last frame.
+  int steps_this_frame = 0;
+  /// @brief Time waiting in the accumulator, in milliseconds.
+  float accumulator_ms = 0;
   /// @brief Height of the last jump, in pixels.
   float jump_height = 0;
   /// @brief How many times the player has fallen out of the level.

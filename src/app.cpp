@@ -9,7 +9,6 @@
 #include "hud.h"
 #include "input.h"
 #include "render.h"
-#include "tuning.h"
 
 namespace ticker {
 
@@ -27,6 +26,8 @@ const char* LoopModeName(LoopMode mode) {
       return "1. variable timestep";
     case LoopMode::FixedPerFrame:
       return "2. fixed step per frame";
+    case LoopMode::Accumulator:
+      return "3. accumulator";
   }
   return "?";
 }
@@ -39,6 +40,8 @@ LoopMode NextLoopMode(LoopMode mode) {
     case LoopMode::Variable:
       return LoopMode::FixedPerFrame;
     case LoopMode::FixedPerFrame:
+      return LoopMode::Accumulator;
+    case LoopMode::Accumulator:
       return LoopMode::Variable;
   }
   return LoopMode::Variable;
@@ -86,6 +89,7 @@ double App::Update(double frame_seconds, const Input& input) {
       // frame means a big one.
       const float dt = static_cast<float>(frame_seconds);
       Step(world_, level_, input, dt);
+      steps_this_frame_ = 1;
       return dt;
     }
     case LoopMode::FixedPerFrame:
@@ -94,7 +98,20 @@ double App::Update(double frame_seconds, const Input& input) {
       // But the game now runs at the speed of the frames: at 15 FPS it
       // gets 15 ticks (a quarter of a second of game time) every second.
       Step(world_, level_, input, kTickSeconds);
+      steps_this_frame_ = 1;
       return kTickSeconds;
+    case LoopMode::Accumulator: {
+      // The fixed timestep with an accumulator. The clock says how many
+      // whole ticks the real time has paid for: often 1, sometimes 0 on a
+      // fast frame, several on a slow one. Every tick has the same dt, and
+      // over a second there are always 60 of them.
+      const int ticks = clock_.Advance(frame_seconds);
+      for (int i = 0; i < ticks; ++i) {
+        Step(world_, level_, input, kTickSeconds);
+      }
+      steps_this_frame_ = ticks;
+      return ticks * static_cast<double>(kTickSeconds);
+    }
   }
   return 0;
 }
@@ -131,6 +148,8 @@ void App::HandleFrameKeys() {
   }
   if (IsKeyPressed(KEY_M)) {
     mode_ = NextLoopMode(mode_);
+    // Time saved up in another mode does not belong to this one.
+    clock_.Reset();
   }
 }
 
@@ -162,6 +181,8 @@ void App::Draw() const {
   hud.stutter = stutter_;
   hud.loop_mode = LoopModeName(mode_);
   hud.game_speed = game_speed_;
+  hud.steps_this_frame = steps_this_frame_;
+  hud.accumulator_ms = static_cast<float>(clock_.accumulator() * 1000);
   hud.jump_height = world_.jump.last_height;
   hud.falls = world_.falls;
   hud.frame_history_ms = frame_history_ms_;

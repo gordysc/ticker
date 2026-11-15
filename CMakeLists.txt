@@ -41,6 +41,7 @@ target_compile_options(raylib PRIVATE -w)
 # .cpp file that includes them.
 add_library(ticker_core STATIC
     src/app.cpp
+    src/clock.cpp
     src/hud.cpp
     src/input.cpp
     src/level.cpp
@@ -91,3 +92,8 @@ add_executable(world_test tests/world_test.cpp)
 target_link_libraries(world_test PRIVATE ticker_core)
 target_compile_options(world_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME world_test COMMAND world_test)
+
+add_executable(clock_test tests/clock_test.cpp)
+target_link_libraries(clock_test PRIVATE ticker_core)
+target_compile_options(clock_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME clock_test COMMAND clock_test)

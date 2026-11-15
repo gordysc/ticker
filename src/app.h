@@ -5,8 +5,10 @@
 
 #include <array>
 
+#include "clock.h"
 #include "level.h"
 #include "random.h"
+#include "tuning.h"
 #include "world.h"
 
 /// @brief Everything that belongs to the game.
@@ -30,6 +32,8 @@ enum class LoopMode {
   Variable,
   /// @brief Stage 2: one Step() per frame, with dt = one tick.
   FixedPerFrame,
+  /// @brief Stage 3: as many one-tick Step()s as the frame time pays for.
+  Accumulator,
 };
 
 /// @brief The program around the simulation: the game loop, the clock and
@@ -90,7 +94,11 @@ class App {
   /// @brief The simulation state.
   World world_;
   /// @brief How Frame() advances the world.
-  LoopMode mode_ = LoopMode::FixedPerFrame;
+  LoopMode mode_ = LoopMode::Accumulator;
+  /// @brief Turns frame times into ticks in LoopMode::Accumulator.
+  FixedStepClock clock_{kTickSeconds};
+  /// @brief How many times Step() ran in the last frame.
+  int steps_this_frame_ = 0;
   /// @brief The clock time, in seconds, at the start of the last frame.
   ///
   /// A `double` holds about 16 significant digits, a `float` about 7. After

@@ -110,6 +110,8 @@ void DrawHud(const HudInfo& info) {
   const bool speed_off = info.game_speed < 0.98f || info.game_speed > 1.02f;
   lines.Add(TextFormat("game speed x%.2f", info.game_speed),
             speed_off ? Color{240, 90, 90, 255} : RAYWHITE);
+  lines.Add(TextFormat("steps this frame %d   accumulator %.1f ms",
+                       info.steps_this_frame, info.accumulator_ms));
   // The 3-tile block in the corner is 96 px tall.
   lines.Add(TextFormat("last jump %.1f px  (block: 96)", info.jump_height),
             info.jump_height >= 96.0f ? Color{120, 220, 160, 255}

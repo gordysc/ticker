@@ -13,6 +13,7 @@ The git history builds the game loop in stages. Each stage has a tag.
 | `stage-2-fixed-step-per-frame` | Each frame advances the world by one fixed tick of 1/60 s. |
 | `stage-3-accumulator` | An accumulator turns real time into a whole number of ticks per frame. |
 | `stage-4-interpolation` | The player is drawn between the last two ticks. |
+| `stage-5-replays` | Replays record the input of each tick and play it back exactly. |
 
 To see a stage, check out its tag:
 ```bash
@@ -324,3 +325,68 @@ explains this.
 - `App::DrawnPlayerPosition()` in `src/app.cpp`.
 - `LerpPlayerPosition()` in `src/world.cpp`.
 - `FixedStepClock::Alpha()` in `src/clock.h`.
+
+## Stage 5: deterministic replays
+
+A simulation is deterministic if the same start and the same inputs always
+give the same result, bit for bit. With a fixed tick, `Step()` is
+deterministic. Stage 5 uses this to record and play back a game.
+
+### What a replay holds
+
+`Replay` in `src/replay.h` holds three things:
+1. The seed of the world's random number generator.
+2. The input of every tick.
+3. The hash of the world after the last tick.
+
+A replay holds no positions and no images. Ten minutes of play is 36,000
+small `Input` values. Many games use the same idea for replays, for demo
+modes and for bug reports. Network games such as real-time strategy games
+use it to send only the inputs between players.
+
+### The hash
+
+`HashWorld()` in `src/world.cpp` reduces every field of `World` to one
+64-bit number. It reads the exact bits of each float. A difference of one
+bit in one float gives a different hash. When a playback ends, the game
+compares the hash of the world with the recorded hash. The sidebar shows
+"MATCH" or "DESYNC".
+
+### What determinism needs
+
+- A fixed `dt`. With a variable timestep, each step's `dt` comes from the
+  frame time. Playback has different frame times from the recording, so
+  the result is different.
+- The input of each tick, not of each frame. `App::RunStep()` records the
+  input that the tick used, after the `InputLatch`.
+- A random number generator that belongs to the world. It must change only
+  inside `Step()`. The stutter has its own generator for this reason.
+- A random number generator with a known output. The standard library
+  distributions can give different numbers with different compilers. See
+  the comment on `Random` in `src/random.h`.
+- The same floating-point maths. The same program on the same computer
+  always gives the same results. Different compilers, compiler options
+  (such as `-ffast-math`) or processors can round differently. Games that
+  replay across computers use fixed-point maths or strict compiler
+  settings.
+
+### Try it
+
+1. Make sure that the sidebar shows "4. accumulator + interpolation".
+2. Push R to start a recording. The world starts again.
+3. Play for a few seconds. Collect a coin, and push H and J during play.
+4. Push R. The game plays the recording back. Push 1 or 5 to change the
+   frame rate during the playback.
+5. At the end, the sidebar shows "last replay: MATCH".
+6. Push M until the sidebar shows "1. variable timestep". Record and play
+   back again. The sidebar shows "last replay: DESYNC". Often the player
+   misses a jump in the playback.
+
+### Code to read
+
+- `App::RunStep()`, `App::StartRecording()`, `App::StartPlayback()` and
+  `App::FinishPlayback()` in `src/app.cpp`.
+- `HashWorld()` in `src/world.cpp`.
+- `tests/replay_test.cpp`. `TestFixedTicksIgnoreFrameRate()` runs the same
+  inputs at 15, 60 and 144 FPS and gets the same hash.
+  `TestVariableTimestepDependsOnFrameRate()` shows the opposite.

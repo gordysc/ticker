@@ -39,6 +39,7 @@ The tests do not open a window.
 - J: turn random short freezes ("stutter") on or off.
 - K: make each tick take 25 ms of real time, or go back to normal.
 - S: turn slow motion (0.1 times real speed) on or off.
+- F: hold for fast forward (4 times real speed).
 - G: show or hide outlines of the player at the last two ticks.
 - P: pause the game, or continue a paused game.
 - N: while paused, advance the game by one tick.

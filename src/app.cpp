@@ -219,6 +219,15 @@ double App::TimeScale() const {
   if (paused_) {
     return 0;
   }
+  // IsKeyDown(), not IsKeyPressed(): fast forward lasts while F is held.
+  if (IsKeyDown(KEY_F)) {
+    // Fast forward runs more ticks per frame, not bigger ticks. At 60 FPS
+    // that is 4 ticks per frame. At 15 FPS it would be 16, more than
+    // kMaxTicksPerFrame, so the clock drops time and the game runs slower
+    // than x4. A heavy game cannot fast forward further than its
+    // computer can simulate.
+    return kFastForwardScale;
+  }
   return slow_motion_ ? kSlowMotionScale : 1.0;
 }
 

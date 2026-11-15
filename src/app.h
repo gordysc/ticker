@@ -26,6 +26,8 @@ inline constexpr double kHitchSeconds = 0.25;
 inline constexpr double kSlowTickSeconds = 0.025;
 /// @brief How fast game time runs while slow motion (the S key) is on.
 inline constexpr double kSlowMotionScale = 0.1;
+/// @brief How fast game time runs while the F key is held.
+inline constexpr double kFastForwardScale = 4.0;
 /// @brief How many recent frames the frame time graph shows.
 inline constexpr int kFrameHistoryLength = 120;
 
@@ -90,7 +92,8 @@ class App {
   void RunStep(float dt);
 
   /// @brief How fast game time runs compared with real time.
-  /// @return 1 for real speed, less than 1 for slow motion, 0 while paused.
+  /// @return 1 for real speed, less than 1 for slow motion, more than 1
+  ///         for fast forward, 0 while paused.
   double TimeScale() const;
 
   /// @brief Starts a new world and records every step from now on.

@@ -177,7 +177,7 @@ void DrawHud(const HudInfo& info) {
   // The key list sits at the bottom of the sidebar. A `constexpr` array of
   // `const char*` is built at compile time, and .size() is known there too.
   constexpr Color kDim{150, 156, 175, 255};
-  constexpr std::array<const char*, 10> kKeys = {
+  constexpr std::array<const char*, 11> kKeys = {
       "Left / Right: run      Space / Up: jump",
       "M: next loop mode",
       "1-5: frame rate cap",
@@ -185,6 +185,7 @@ void DrawHud(const HudInfo& info) {
       "J: random stutter on / off",
       "K: slow ticks on / off",
       "S: slow motion on / off",
+      "F (hold): fast forward",
       "G: show the last two ticks",
       "R: record, then play back",
       "P: pause     N: one tick while paused",

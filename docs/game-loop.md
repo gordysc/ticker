@@ -12,6 +12,7 @@ The git history builds the game loop in stages. Each stage has a tag.
 | `stage-1-variable-timestep` | Each frame advances the world by the measured frame time. |
 | `stage-2-fixed-step-per-frame` | Each frame advances the world by one fixed tick of 1/60 s. |
 | `stage-3-accumulator` | An accumulator turns real time into a whole number of ticks per frame. |
+| `stage-4-interpolation` | The player is drawn between the last two ticks. |
 
 To see a stage, check out its tag:
 ```bash
@@ -257,3 +258,69 @@ git checkout stage-3-accumulator~2
 - `App::RunStep()` in `src/app.cpp`: the slow ticks.
 - `InputLatch` in `src/input.cpp`.
 - `tests/clock_test.cpp` and `tests/input_test.cpp`.
+
+## Stage 4: interpolation
+
+The accumulator makes the simulation correct, but the drawing can look
+uneven. The screen shows the world as the last tick left it. At 144 FPS,
+about 84 frames each second run no tick, so they draw the player at the
+same place as the frame before. The other frames move the player one full
+tick. The motion steps instead of slides. This is "judder". It is easy to
+see on a fast screen, and it is worse with a low tick rate.
+
+### The fix
+
+After the last tick of a frame, real time is a little past the game time
+of that tick. The extra time is in the accumulator. `FixedStepClock::Alpha()`
+gives it as a fraction of a tick, from 0 to 1.
+
+`App` keeps a copy of the world from before the last tick, in
+`previous_world_`. `Draw()` places the player between the two copies by
+alpha. `LerpPlayerPosition()` in `src/world.cpp` does the sum. "Lerp" is
+short for linear interpolation.
+
+The simulation does not change. Only the drawing changes. `World` is a
+plain struct of values, so a copy of it is a full, separate snapshot.
+
+### The cost: one tick of delay
+
+The drawn player is between the tick before and the last tick. The screen
+therefore shows the world up to one tick (16.7 ms) late. Most games accept
+this delay for smooth motion. Some fighting games and competitive games
+use a higher tick rate to make the delay smaller.
+
+An alternative is extrapolation. It draws the player ahead of the last
+tick, at the position the velocity predicts. It has no delay, but the
+prediction is wrong when something changes, for example when the player
+hits a wall.
+
+### Teleports
+
+A respawn moves the player from the bottom of the level to the start in
+one tick. A line between the two places shows the player fly across the
+screen for one frame. `LerpPlayerPosition()` sees that `falls` changed and
+returns the new place.
+
+### Try it
+
+1. Push S for slow motion. Time now runs at 0.1 times real speed, so there
+   are 6 ticks each second.
+2. Push G to show the last two ticks as outlines.
+3. Push M until the sidebar shows "3. accumulator". Run and jump. The
+   player jumps from one outline to the next.
+4. Push M to show "4. accumulator + interpolation". The player slides
+   between the outlines.
+5. Push S again. Push 4 to set 144 FPS and compare modes 3 and 4. The
+   difference is small at normal speed, but mode 4 is smoother.
+
+Slow motion scales the real time before the loop sees it. In the variable
+timestep mode, slow motion makes `dt` smaller and changes the jump height.
+In the fixed modes, it changes only how often the ticks come. Stage 6
+explains this.
+
+### Code to read
+
+- `App::RunStep()` in `src/app.cpp`: the copy to `previous_world_`.
+- `App::DrawnPlayerPosition()` in `src/app.cpp`.
+- `LerpPlayerPosition()` in `src/world.cpp`.
+- `FixedStepClock::Alpha()` in `src/clock.h`.

@@ -252,6 +252,17 @@ void TestLerpSkipsRespawn() {
   CHECK(Near(drawn.y, current.player.position.y));
 }
 
+/// @brief The hash sees a change of one bit in any float.
+void TestHashSeesSmallChanges() {
+  const Level level(kLevelMap);
+  const World a = MakeWorld(level, 1);
+  World b = a;
+  CHECK(HashWorld(a) == HashWorld(b));
+  // std::nextafter gives the next float up: a change in the last bit.
+  b.player.position.x = std::nextafter(b.player.position.x, 1e9f);
+  CHECK(HashWorld(a) != HashWorld(b));
+}
+
 /// @brief The generator gives the same numbers for the same seed.
 void TestRandomRepeats() {
   Random a(42);
@@ -291,6 +302,7 @@ int main() {
       {"coin moves when collected", TestCoinMovesWhenCollected},
       {"lerp player position", TestLerpPlayerPosition},
       {"lerp skips respawn", TestLerpSkipsRespawn},
+      {"hash sees small changes", TestHashSeesSmallChanges},
       {"random repeats", TestRandomRepeats},
   };
   return testing::RunTests(tests);

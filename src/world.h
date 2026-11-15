@@ -100,6 +100,21 @@ Rectangle PlayerBox(const Player& player);
 Vector2 LerpPlayerPosition(const World& previous, const World& current,
                            float alpha);
 
+/// @brief Reduces the whole world to one 64-bit number.
+///
+/// Two worlds with the same hash are, for all practical purposes, the same
+/// world, down to the last bit of every float. A replay stores the hash of
+/// the world at the end of the recording. If playback ends with the same
+/// hash, the playback did exactly what the recording did.
+///
+/// Why not compare two World values with `==`? The recording's World no
+/// longer exists when playback ends, and a hash is 8 bytes, small enough to
+/// save in a file or send over a network.
+///
+/// @param world The world.
+/// @return The hash.
+std::uint64_t HashWorld(const World& world);
+
 /// @brief The collision box of the coin.
 /// @param world The world.
 /// @param level The level, which holds the coin spawn points.

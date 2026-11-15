@@ -1,6 +1,7 @@
 #include "world.h"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 
@@ -263,6 +264,76 @@ Vector2 LerpPlayerPosition(const World& previous, const World& current,
   const Vector2 a = previous.player.position;
   const Vector2 b = current.player.position;
   return {a.x + (b.x - a.x) * alpha, a.y + (b.y - a.y) * alpha};
+}
+
+namespace {
+
+/// @brief Builds an FNV-1a hash, one value at a time.
+///
+/// FNV-1a (Fowler, Noll and Vo) mixes each byte into the hash with an XOR
+/// and a multiply. It is not secure against attacks, but it is fast, short
+/// and the same on every computer, which is all a replay check needs.
+class Hasher {
+ public:
+  /// @brief Mixes in the 4 bytes of a 32-bit value.
+  /// @param value The value.
+  void Add(std::uint32_t value) {
+    for (int i = 0; i < 4; ++i) {
+      hash_ ^= (value >> (8 * i)) & 0xFF;
+      hash_ *= 0x100000001B3ull;  // The 64-bit FNV prime.
+    }
+  }
+
+  /// @brief Mixes in the exact bits of a float.
+  ///
+  /// std::bit_cast (C++20) reads the 4 bytes of the float as an integer,
+  /// with no conversion. 1.5f becomes 0x3FC00000, not 1. Two floats that
+  /// differ in the last bit give different hashes. The older trick of a
+  /// reinterpret_cast between pointers is undefined behavior.
+  ///
+  /// @param value The value.
+  void Add(float value) { Add(std::bit_cast<std::uint32_t>(value)); }
+
+  /// @brief Mixes in an int.
+  /// @param value The value.
+  void Add(int value) { Add(static_cast<std::uint32_t>(value)); }
+
+  /// @brief Mixes in a bool as 0 or 1.
+  /// @param value The value.
+  void Add(bool value) { Add(std::uint32_t{value}); }
+
+  /// @brief The hash of everything added so far.
+  /// @return The hash.
+  std::uint64_t hash() const { return hash_; }
+
+ private:
+  /// @brief The hash so far. It starts at the FNV "offset basis".
+  std::uint64_t hash_ = 0xCBF29CE484222325ull;
+};
+
+}  // namespace
+
+std::uint64_t HashWorld(const World& world) {
+  // Every field of World goes in. A field that is left out could differ
+  // between a recording and its playback without the check seeing it.
+  Hasher h;
+  const Player& p = world.player;
+  h.Add(p.position.x);
+  h.Add(p.position.y);
+  h.Add(p.velocity.x);
+  h.Add(p.velocity.y);
+  h.Add(p.on_ground);
+  h.Add(p.coyote_time_left);
+  h.Add(p.jump_buffer_left);
+  h.Add(world.falls);
+  h.Add(world.coin);
+  h.Add(world.score);
+  h.Add(world.random.state());
+  h.Add(world.jump.rising);
+  h.Add(world.jump.start_feet);
+  h.Add(world.jump.highest_feet);
+  h.Add(world.jump.last_height);
+  return h.hash();
 }
 
 Rectangle CoinBox(const World& world, const Level& level) {

@@ -3,6 +3,10 @@
 Ticker is a small 2D platformer in C++20 with
 [raylib](https://www.raylib.com/).
 
+The game is also an introduction to the game loop and the fixed timestep.
+The git history builds the loop in stages. Read
+[docs/game-loop.md](docs/game-loop.md) for the guide.
+
 ## Build in CLion
 1. Open this folder in CLion.
 2. Wait for CMake to download raylib. This step needs an internet connection.

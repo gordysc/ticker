@@ -90,6 +90,23 @@ void App::Frame() {
 }
 
 double App::Update(double frame_seconds) {
+  if (paused_) {
+    // No game time passes, and nothing goes into the accumulator. If the
+    // paused time went in, the first frame after the pause would owe a
+    // pile of ticks and run them all at once.
+    steps_this_frame_ = 0;
+    if (!step_requested_) {
+      return 0;
+    }
+    // The N key: run exactly one tick, then stay paused. Any key pressed
+    // while paused waits in the input latch, so "press jump, then N" shows
+    // the first tick of a jump.
+    step_requested_ = false;
+    RunStep(kTickSeconds);
+    steps_this_frame_ = 1;
+    return kTickSeconds;
+  }
+
   switch (mode_) {
     case LoopMode::Variable: {
       // The variable timestep: advance the world by exactly as much time
@@ -198,7 +215,12 @@ void App::FinishPlayback() {
   replay_state_ = ReplayState::Off;
 }
 
-double App::TimeScale() const { return slow_motion_ ? kSlowMotionScale : 1.0; }
+double App::TimeScale() const {
+  if (paused_) {
+    return 0;
+  }
+  return slow_motion_ ? kSlowMotionScale : 1.0;
+}
 
 void App::MeasureGameSpeed(double real_seconds, double game_seconds) {
   speed_sample_real_ += real_seconds;
@@ -253,6 +275,12 @@ void App::HandleFrameKeys() {
         break;
     }
   }
+  if (IsKeyPressed(KEY_P)) {
+    paused_ = !paused_;
+  }
+  if (IsKeyPressed(KEY_N) && paused_) {
+    step_requested_ = true;
+  }
   if (IsKeyPressed(KEY_M)) {
     mode_ = NextLoopMode(mode_);
     // Time saved up in another mode does not belong to this one.
@@ -295,6 +323,7 @@ void App::Draw() const {
   hud.frame_rate_cap = frame_rate_cap_;
   hud.stutter = stutter_;
   hud.slow_ticks = slow_ticks_;
+  hud.paused = paused_;
   hud.time_scale = static_cast<float>(TimeScale());
   hud.loop_mode = LoopModeName(mode_);
   hud.game_speed = game_speed_;
@@ -315,7 +344,9 @@ void App::Draw() const {
 }
 
 Vector2 App::DrawnPlayerPosition() const {
-  if (mode_ != LoopMode::Interpolated) {
+  // While paused, show the last tick exactly. A point between two ticks
+  // would make each single step with N look like only part of a step.
+  if (mode_ != LoopMode::Interpolated || paused_) {
     // Without interpolation, draw the world as the last tick left it. On a
     // frame with no tick, the player is drawn at the same place as on the
     // frame before, and on a frame with 2 ticks it moves twice as far. At

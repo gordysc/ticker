@@ -26,6 +26,8 @@ struct HudInfo {
   bool stutter = false;
   /// @brief True if every Step() is slowed down on purpose.
   bool slow_ticks = false;
+  /// @brief True if the game is paused.
+  bool paused = false;
   /// @brief Game time per real time that the player asked for. 1 is
   /// normal, less is slow motion.
   float time_scale = 1;

@@ -90,7 +90,7 @@ class App {
   void RunStep(float dt);
 
   /// @brief How fast game time runs compared with real time.
-  /// @return 1 for real speed, less than 1 for slow motion.
+  /// @return 1 for real speed, less than 1 for slow motion, 0 while paused.
   double TimeScale() const;
 
   /// @brief Starts a new world and records every step from now on.
@@ -181,6 +181,10 @@ class App {
   bool stutter_ = false;
   /// @brief True if every Step() takes kSlowTickSeconds of real time.
   bool slow_ticks_ = false;
+  /// @brief True if the game is paused.
+  bool paused_ = false;
+  /// @brief True if the N key asked for one tick while paused.
+  bool step_requested_ = false;
   /// @brief True if slow motion is on. See kSlowMotionScale.
   bool slow_motion_ = false;
   /// @brief True if Draw() also shows outlines at the last two ticks.

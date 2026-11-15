@@ -147,6 +147,7 @@ void DrawHud(const HudInfo& info) {
   // A game speed more than 2% away from the time scale shows in red: the
   // game is not running at the speed it should.
   const bool speed_off =
+      !info.paused &&
       std::fabs(info.game_speed - info.time_scale) > 0.02f * info.time_scale;
   lines.Add(TextFormat("game speed x%.2f   time scale x%.2f", info.game_speed,
                        info.time_scale),
@@ -162,6 +163,13 @@ void DrawHud(const HudInfo& info) {
                                       : Color{240, 170, 90, 255});
   lines.Add(TextFormat("falls out of the level: %d", info.falls));
   DrawReplayLine(lines, info);
+  if (info.paused) {
+    // Centered over the level area. MeasureText() gives the width in
+    // pixels of the text at this font size.
+    const int width = MeasureText("PAUSED", 40);
+    DrawText("PAUSED", (kLevelAreaWidth - width) / 2, 80, 40, RAYWHITE);
+    lines.Add("paused: N runs one tick", Color{255, 196, 87, 255});
+  }
 
   DrawFrameGraph(info.frame_history_ms, kPanelX + kPadding,
                  lines.y() + kPadding / 2, kPanelWidth - kPadding * 2);
@@ -169,7 +177,7 @@ void DrawHud(const HudInfo& info) {
   // The key list sits at the bottom of the sidebar. A `constexpr` array of
   // `const char*` is built at compile time, and .size() is known there too.
   constexpr Color kDim{150, 156, 175, 255};
-  constexpr std::array<const char*, 9> kKeys = {
+  constexpr std::array<const char*, 10> kKeys = {
       "Left / Right: run      Space / Up: jump",
       "M: next loop mode",
       "1-5: frame rate cap",
@@ -179,6 +187,7 @@ void DrawHud(const HudInfo& info) {
       "S: slow motion on / off",
       "G: show the last two ticks",
       "R: record, then play back",
+      "P: pause     N: one tick while paused",
   };
   TextLines keys(
       kPanelX + kPadding,

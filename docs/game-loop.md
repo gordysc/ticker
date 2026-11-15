@@ -11,6 +11,7 @@ The git history builds the game loop in stages. Each stage has a tag.
 |---|---|
 | `stage-1-variable-timestep` | Each frame advances the world by the measured frame time. |
 | `stage-2-fixed-step-per-frame` | Each frame advances the world by one fixed tick of 1/60 s. |
+| `stage-3-accumulator` | An accumulator turns real time into a whole number of ticks per frame. |
 
 To see a stage, check out its tag:
 ```bash
@@ -168,3 +169,91 @@ at the same rate, so the loop worked. A European TV ran at 50 Hz instead of
 - `App::Update()` in `src/app.cpp`: the two loop modes side by side.
 - `kTickSeconds` in `src/tuning.h`.
 - The `static_assert` lines at the top of `src/world.cpp`.
+
+## Stage 3: the accumulator
+
+Stage 1 gets the speed right and the physics wrong. Stage 2 gets the
+physics right and the speed wrong. The accumulator gets both right. Glenn
+Fiedler's article "Fix Your Timestep!" made this loop well known.
+
+`FixedStepClock` in `src/clock.h` holds an accumulator of real time. Each
+frame adds its length to the accumulator. The clock then takes out one
+tick length at a time, and the loop runs one tick for each. Time that is
+too short for a full tick stays in the accumulator for the next frame.
+
+| Frame rate | Frame time | Ticks per frame |
+|---|---|---|
+| 144 FPS | 6.9 ms | 0 or 1 |
+| 60 FPS | 16.7 ms | usually 1 |
+| 30 FPS | 33.3 ms | 2 |
+| 15 FPS | 66.7 ms | 4 |
+
+Over one second there are always 60 ticks. The game runs at real speed,
+and every tick has the same `dt`.
+
+The stage has four commits. The first commit adds the clock. The second
+commit and the third commit show a problem and its fix. The fourth commit
+fixes a second problem.
+
+### Problem 1: the spiral of death
+
+Each tick costs real time to run. If a tick takes longer to run than the
+game time it simulates, the loop cannot keep up:
+1. A slow frame puts a lot of time in the accumulator.
+2. The next frame runs many ticks to pay for it, so that frame is slower.
+3. The frame after that owes even more ticks.
+
+The frame time grows each frame until the game freezes. The K key makes
+each tick take 25 ms, which is more than the 16.7 ms of a tick.
+
+The fix is a limit: `kMaxTicksPerFrame` in `src/tuning.h`. If a frame owes
+more ticks than the limit, the clock runs the limit and drops the rest of
+the time. The game then runs slower than real time, but it does not
+freeze. The sidebar shows the total time that the clock dropped.
+
+The limit also helps after a single long freeze, for example when the
+operating system stops the program for a moment. Without the limit, the
+game runs many ticks in one frame to catch up, and the player sees a jump
+forward.
+
+### Problem 2: lost key presses
+
+raylib reports a key press on one frame only. With the accumulator, a fast
+frame can run no tick. At 144 FPS more than half of the frames run no
+tick, so more than half of the jump presses are lost. A slow frame runs
+several ticks, and each of them sees the same press.
+
+`InputLatch` in `src/input.h` fixes this. It keeps each press until one
+tick takes it. Held keys, such as Left and Right, follow the latest frame.
+
+### Try it
+
+1. Push M until the sidebar shows "3. accumulator".
+2. Push 1, 2, 3 and 4 in turn. The jump height stays at 103.4 px, and the
+   game speed stays at 1.
+3. Watch "steps this frame" at 144 FPS. It changes between 0 and 1.
+4. Push K to turn on slow ticks. The game speed drops to about 0.7, and
+   the time dropped goes up. The game does not freeze. Push K again.
+
+To see the two problems, check out the commits before their fixes.
+
+> **Warning:** At the commit below, K freezes the game in the accumulator
+> mode. Stop the program from the terminal or from CLion.
+
+```bash
+git checkout stage-3-accumulator~3
+```
+
+At the commit below, push 4 or 5 for a high frame rate and jump. Many
+jump presses do nothing.
+```bash
+git checkout stage-3-accumulator~2
+```
+
+### Code to read
+
+- `FixedStepClock::Advance()` in `src/clock.cpp`.
+- The `LoopMode::Accumulator` case of `App::Update()` in `src/app.cpp`.
+- `App::RunStep()` in `src/app.cpp`: the slow ticks.
+- `InputLatch` in `src/input.cpp`.
+- `tests/clock_test.cpp` and `tests/input_test.cpp`.

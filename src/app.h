@@ -3,11 +3,19 @@
 
 // Header guard; see screen.h for how it works.
 
+#include <array>
+
 #include "level.h"
+#include "random.h"
 #include "world.h"
 
 /// @brief Everything that belongs to the game.
 namespace ticker {
+
+/// @brief The frame rate caps that keys 1 to 5 pick. 0 means no cap.
+inline constexpr std::array<int, 5> kFrameRateCaps = {15, 30, 60, 144, 0};
+/// @brief How long the H key freezes the program, in seconds.
+inline constexpr double kHitchSeconds = 0.25;
 
 /// @brief The program around the simulation: the game loop, the clock and
 /// the drawing.
@@ -35,6 +43,15 @@ class App {
   void Frame();
 
  private:
+  /// @brief Reads the keys that change the frame rate, not the game.
+  void HandleFrameKeys();
+
+  /// @brief Freezes the program for a moment if a hitch or stutter is due.
+  ///
+  /// This copies what happens on a real computer when the operating system
+  /// runs something else, a file loads, or the window is dragged.
+  void Stall();
+
   /// @brief Draws the world.
   void Draw() const;
 
@@ -51,6 +68,20 @@ class App {
   /// A `double` holds about 16 significant digits, a `float` about 7. After
   /// a few hours, a float clock could no longer tell two frames apart.
   double last_frame_start_ = 0;
+
+  /// @brief The frame rate cap now in use. 0 means no cap.
+  int frame_rate_cap_ = 60;
+  /// @brief True if the next frame freezes for kHitchSeconds.
+  bool hitch_due_ = false;
+  /// @brief True if random short freezes are on.
+  bool stutter_ = false;
+  /// @brief Picks when the stutter freezes happen, and for how long.
+  ///
+  /// This is a different generator from the one in the World. The stutter
+  /// belongs to the program around the game, not to the game. If it used
+  /// the world's generator, turning the stutter on would change where the
+  /// coins appear.
+  Random stutter_random_{12345};
 };
 
 }  // namespace ticker

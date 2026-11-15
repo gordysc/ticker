@@ -199,6 +199,7 @@ void App::Draw() const {
   hud.game_speed = game_speed_;
   hud.steps_this_frame = steps_this_frame_;
   hud.accumulator_ms = static_cast<float>(clock_.accumulator() * 1000);
+  hud.dropped_ms = static_cast<float>(clock_.dropped_seconds() * 1000);
   hud.jump_height = world_.jump.last_height;
   hud.falls = world_.falls;
   hud.frame_history_ms = frame_history_ms_;

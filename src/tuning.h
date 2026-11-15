@@ -14,6 +14,12 @@ inline constexpr int kTicksPerSecond = 60;
 /// the simulation gets the same step size on every computer, at every
 /// frame rate.
 inline constexpr float kTickSeconds = 1.0f / kTicksPerSecond;
+/// @brief The most ticks that one frame can run.
+///
+/// At 15 FPS a frame needs 4 ticks, so 8 leaves room for normal slow
+/// frames. A frame that needs more than this drops the extra time. See
+/// FixedStepClock::Advance().
+inline constexpr int kMaxTicksPerFrame = 8;
 
 // Every number that sets how the game feels lives here, in one place.
 // Distances are in pixels and times are in seconds, so speeds are pixels per

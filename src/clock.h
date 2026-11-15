@@ -23,11 +23,22 @@ class FixedStepClock {
  public:
   /// @brief Creates a clock with an empty accumulator.
   /// @param tick_seconds Length of one tick, in seconds.
-  explicit FixedStepClock(double tick_seconds);
+  /// @param max_ticks_per_frame The most ticks that Advance() gives for one
+  ///        frame. See Advance().
+  FixedStepClock(double tick_seconds, int max_ticks_per_frame);
 
   /// @brief Adds one frame of real time and takes out the ticks it pays for.
+  ///
+  /// If the accumulator holds more than `max_ticks_per_frame` ticks, the
+  /// clock gives only that many and throws away the rest of the time. The
+  /// game then runs slower than real time for a moment, but each frame
+  /// does a known, limited amount of work. Without the limit, a computer
+  /// too slow to run the ticks gets further behind each frame, until the
+  /// game freezes (the "spiral of death").
+  ///
   /// @param frame_seconds How long the frame took.
-  /// @return How many ticks to run this frame. Can be 0.
+  /// @return How many ticks to run this frame, from 0 to
+  ///         `max_ticks_per_frame`.
   int Advance(double frame_seconds);
 
   /// @brief Throws away the time in the accumulator.
@@ -41,13 +52,21 @@ class FixedStepClock {
   /// @return Seconds.
   double tick_seconds() const { return tick_seconds_; }
 
+  /// @brief All the time that Advance() has thrown away so far.
+  /// @return Seconds.
+  double dropped_seconds() const { return dropped_seconds_; }
+
  private:
   /// @brief Length of one tick, in seconds.
   double tick_seconds_;
+  /// @brief See the constructor.
+  int max_ticks_per_frame_;
+  /// @brief See dropped_seconds().
+  double dropped_seconds_ = 0;
   /// @brief Real time not yet turned into ticks, in seconds.
   ///
-  /// A `double`, not a `float`. Small errors in this sum add up over a long
-  /// game, and a float would lose a tick every few minutes.
+  /// A `double`, like the frame times from raylib's GetTime(), so no
+  /// precision is lost when a frame time is added.
   double accumulator_ = 0;
 };
 

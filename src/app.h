@@ -105,7 +105,7 @@ class App {
   /// @brief How Frame() advances the world.
   LoopMode mode_ = LoopMode::Accumulator;
   /// @brief Turns frame times into ticks in LoopMode::Accumulator.
-  FixedStepClock clock_{kTickSeconds};
+  FixedStepClock clock_{kTickSeconds, kMaxTicksPerFrame};
   /// @brief How many times Step() ran in the last frame.
   int steps_this_frame_ = 0;
   /// @brief The clock time, in seconds, at the start of the last frame.

@@ -10,6 +10,7 @@ The git history builds the game loop in stages. Each stage has a tag.
 | Tag | What changes |
 |---|---|
 | `stage-1-variable-timestep` | Each frame advances the world by the measured frame time. |
+| `stage-2-fixed-step-per-frame` | Each frame advances the world by one fixed tick of 1/60 s. |
 
 To see a stage, check out its tag:
 ```bash
@@ -36,6 +37,9 @@ Each pass of the loop is a frame. A frame does three things:
 In Ticker, `App::Frame()` in `src/app.cpp` is one frame. `Step()` in
 `src/world.cpp` is the update. `Step()` reads no clock and no keyboard. The
 caller gives it the input and the time to advance.
+
+From stage 2, the M key changes the loop mode while the game runs. The
+sidebar shows the mode. Use M to compare a stage with the stages before it.
 
 This split is the most important design decision in the project. Every
 stage changes how `App` calls `Step()`. No stage changes what `Step()`
@@ -121,3 +125,46 @@ Stage 5 shows why that matters for replays.
 - `Step()`, `MoveX()` and `MoveY()` in `src/world.cpp`.
 - `TestJumpHeightDependsOnStepSize()` and
   `TestBigStepTunnelsThroughFloor()` in `tests/world_test.cpp`.
+
+## Stage 2: a fixed step per frame
+
+The second loop mode ignores the frame time. Each frame calls `Step()` one
+time with `dt = kTickSeconds`, which is 1/60 s. One call to `Step()` with
+this fixed `dt` is a "tick".
+
+### What this fixes
+
+Every step now has the same size, so the physics gives the same result at
+every frame rate. The jump rises 103.4 px at 15 FPS and at 144 FPS.
+
+The fixed tick also fixes tunneling. The fastest speed in the game is the
+maximum fall speed, 900 px/s. In one tick the player falls at most 15 px,
+which is less than the 32 px of a tile. Three `static_assert` lines at the
+top of `src/world.cpp` check this at compile time. If a change to
+`src/tuning.h` breaks the rule, the build fails.
+
+### What goes wrong
+
+The game now runs at the speed of the frames. At 15 FPS the world gets 15
+ticks each second, so a quarter of a second of game time passes in each
+real second. At 144 FPS the game runs 2.4 times too fast. The "game speed"
+line in the sidebar shows the ratio of game time to real time.
+
+Many old console games used this loop. The console and the TV always ran
+at the same rate, so the loop worked. A European TV ran at 50 Hz instead of
+60 Hz, and those games ran about 17% slower in Europe.
+
+### Try it
+
+1. Push M until the sidebar shows "2. fixed step per frame".
+2. Jump next to the block. The jump height is 103.4 px.
+3. Push 1 to set 15 FPS. Jump again. The height is still 103.4 px, but the
+   game runs in slow motion. The game speed is about 0.25.
+4. Push 5 to remove the frame rate cap. The game speed goes far above 1.
+5. Push 3, then push H. The player does not fall through the floor.
+
+### Code to read
+
+- `App::Update()` in `src/app.cpp`: the two loop modes side by side.
+- `kTickSeconds` in `src/tuning.h`.
+- The `static_assert` lines at the top of `src/world.cpp`.

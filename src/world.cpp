@@ -8,6 +8,18 @@
 
 namespace ticker {
 
+// static_assert checks a condition at compile time. If a tuning change
+// breaks the condition, the build fails with this message. With a fixed
+// tick, the fastest the player can move in one step is known in advance.
+// If that is less than a tile, the "move, then push out" collision test in
+// MoveX() and MoveY() can never jump over a tile.
+static_assert(kMaxFallSpeed * kTickSeconds < kTileSize,
+              "one tick of falling must move less than one tile");
+static_assert(kJumpSpeed * kTickSeconds < kTileSize,
+              "one tick of jumping must move less than one tile");
+static_assert(kRunSpeed * kTickSeconds < kTileSize,
+              "one tick of running must move less than one tile");
+
 namespace {
 
 /// @brief A block of tiles: every column and row from the first to the last.

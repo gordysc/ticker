@@ -9,8 +9,42 @@
 #include "hud.h"
 #include "input.h"
 #include "render.h"
+#include "tuning.h"
 
 namespace ticker {
+
+namespace {
+
+/// @brief A short name for a loop mode, for the sidebar.
+/// @param mode The mode.
+/// @return A string literal. String literals live for the whole program,
+///         so the pointer never dangles.
+const char* LoopModeName(LoopMode mode) {
+  // There is a `case` for every LoopMode and no `default`. If a new mode
+  // is added later, the compiler warns (-Wswitch) that it is missing.
+  switch (mode) {
+    case LoopMode::Variable:
+      return "1. variable timestep";
+    case LoopMode::FixedPerFrame:
+      return "2. fixed step per frame";
+  }
+  return "?";
+}
+
+/// @brief The mode after this one, back to the first after the last.
+/// @param mode The current mode.
+/// @return The next mode.
+LoopMode NextLoopMode(LoopMode mode) {
+  switch (mode) {
+    case LoopMode::Variable:
+      return LoopMode::FixedPerFrame;
+    case LoopMode::FixedPerFrame:
+      return LoopMode::Variable;
+  }
+  return LoopMode::Variable;
+}
+
+}  // namespace
 
 // std::random_device asks the operating system for an unpredictable
 // number. It only picks the seed. After that, the world's own generator
@@ -29,22 +63,52 @@ void App::Frame() {
   const double now = GetTime();
   last_frame_seconds_ = now - last_frame_start_;
   last_frame_start_ = now;
-  const float dt = static_cast<float>(last_frame_seconds_);
 
   // Drop the oldest entry and add the newest at the end. std::shift_left
   // (C++20) moves every element one place towards the front.
   std::shift_left(frame_history_ms_.begin(), frame_history_ms_.end(), 1);
   frame_history_ms_.back() = static_cast<float>(last_frame_seconds_ * 1000);
 
-  // The variable timestep: advance the world by exactly as much time as
-  // the last frame took. A short frame means a small step, a long frame
-  // means a big one.
-  Step(world_, level_, ReadInput(), dt);
+  const double game_seconds = Update(last_frame_seconds_, ReadInput());
+  MeasureGameSpeed(last_frame_seconds_, game_seconds);
 
   BeginDrawing();
   Draw();
   Stall();
   EndDrawing();
+}
+
+double App::Update(double frame_seconds, const Input& input) {
+  switch (mode_) {
+    case LoopMode::Variable: {
+      // The variable timestep: advance the world by exactly as much time
+      // as the last frame took. A short frame means a small step, a long
+      // frame means a big one.
+      const float dt = static_cast<float>(frame_seconds);
+      Step(world_, level_, input, dt);
+      return dt;
+    }
+    case LoopMode::FixedPerFrame:
+      // One tick per frame, whatever the frame time was. Every step has
+      // the same size, so the physics is the same at every frame rate.
+      // But the game now runs at the speed of the frames: at 15 FPS it
+      // gets 15 ticks (a quarter of a second of game time) every second.
+      Step(world_, level_, input, kTickSeconds);
+      return kTickSeconds;
+  }
+  return 0;
+}
+
+void App::MeasureGameSpeed(double real_seconds, double game_seconds) {
+  speed_sample_real_ += real_seconds;
+  speed_sample_game_ += game_seconds;
+  // One frame is too short to measure: a single long frame would make the
+  // number jump about. Half a second of frames gives a steady value.
+  if (speed_sample_real_ >= 0.5) {
+    game_speed_ = static_cast<float>(speed_sample_game_ / speed_sample_real_);
+    speed_sample_real_ = 0;
+    speed_sample_game_ = 0;
+  }
 }
 
 void App::HandleFrameKeys() {
@@ -64,6 +128,9 @@ void App::HandleFrameKeys() {
   }
   if (IsKeyPressed(KEY_J)) {
     stutter_ = !stutter_;
+  }
+  if (IsKeyPressed(KEY_M)) {
+    mode_ = NextLoopMode(mode_);
   }
 }
 
@@ -93,6 +160,8 @@ void App::Draw() const {
   hud.frame_ms = static_cast<float>(last_frame_seconds_ * 1000);
   hud.frame_rate_cap = frame_rate_cap_;
   hud.stutter = stutter_;
+  hud.loop_mode = LoopModeName(mode_);
+  hud.game_speed = game_speed_;
   hud.jump_height = world_.jump.last_height;
   hud.falls = world_.falls;
   hud.frame_history_ms = frame_history_ms_;

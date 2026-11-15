@@ -19,6 +19,19 @@ inline constexpr double kHitchSeconds = 0.25;
 /// @brief How many recent frames the frame time graph shows.
 inline constexpr int kFrameHistoryLength = 120;
 
+/// @brief The ways App can advance the world. The M key moves to the next.
+///
+/// `enum class` is the modern replacement for a plain `enum`. Its names are
+/// scoped (you write `LoopMode::Variable`), and it never silently converts
+/// to an int. The values need no `k` prefix: the enum name in front of
+/// them already says what they are.
+enum class LoopMode {
+  /// @brief Stage 1: one Step() per frame, with dt = the frame time.
+  Variable,
+  /// @brief Stage 2: one Step() per frame, with dt = one tick.
+  FixedPerFrame,
+};
+
 /// @brief The program around the simulation: the game loop, the clock and
 /// the drawing.
 ///
@@ -48,6 +61,17 @@ class App {
   /// @brief Reads the keys that change the frame rate, not the game.
   void HandleFrameKeys();
 
+  /// @brief Advances the world for one frame, in the current loop mode.
+  /// @param frame_seconds How long the last frame took.
+  /// @param input What the player pressed.
+  /// @return How many seconds of game time passed.
+  double Update(double frame_seconds, const Input& input);
+
+  /// @brief Updates game_speed_ from the time that passed this frame.
+  /// @param real_seconds Real time that passed.
+  /// @param game_seconds Game time that passed.
+  void MeasureGameSpeed(double real_seconds, double game_seconds);
+
   /// @brief Freezes the program for a moment if a hitch or stutter is due.
   ///
   /// This copies what happens on a real computer when the operating system
@@ -65,6 +89,8 @@ class App {
   const Level level_;
   /// @brief The simulation state.
   World world_;
+  /// @brief How Frame() advances the world.
+  LoopMode mode_ = LoopMode::FixedPerFrame;
   /// @brief The clock time, in seconds, at the start of the last frame.
   ///
   /// A `double` holds about 16 significant digits, a `float` about 7. After
@@ -74,6 +100,13 @@ class App {
   double last_frame_seconds_ = 0;
   /// @brief Recent frame lengths in milliseconds, oldest first.
   std::array<float, kFrameHistoryLength> frame_history_ms_{};
+  /// @brief Real seconds in the current game speed sample.
+  double speed_sample_real_ = 0;
+  /// @brief Game seconds in the current game speed sample.
+  double speed_sample_game_ = 0;
+  /// @brief Game time divided by real time, over the last half second.
+  /// 1 means the game runs at real speed.
+  float game_speed_ = 1;
 
   /// @brief The frame rate cap now in use. 0 means no cap.
   int frame_rate_cap_ = 60;

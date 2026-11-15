@@ -105,7 +105,11 @@ void DrawHud(const HudInfo& info) {
                        info.frame_ms, cap));
   lines.Add(TextFormat("stutter %s", info.stutter ? "ON" : "off"),
             info.stutter ? Color{240, 90, 90, 255} : RAYWHITE);
-  lines.Add("loop: variable timestep");
+  lines.Add(TextFormat("loop %s", info.loop_mode), Color{255, 196, 87, 255});
+  // A game speed more than 2% away from 1 shows in red.
+  const bool speed_off = info.game_speed < 0.98f || info.game_speed > 1.02f;
+  lines.Add(TextFormat("game speed x%.2f", info.game_speed),
+            speed_off ? Color{240, 90, 90, 255} : RAYWHITE);
   // The 3-tile block in the corner is 96 px tall.
   lines.Add(TextFormat("last jump %.1f px  (block: 96)", info.jump_height),
             info.jump_height >= 96.0f ? Color{120, 220, 160, 255}
@@ -118,8 +122,9 @@ void DrawHud(const HudInfo& info) {
   // The key list sits at the bottom of the sidebar. A `constexpr` array of
   // `const char*` is built at compile time, and .size() is known there too.
   constexpr Color kDim{150, 156, 175, 255};
-  constexpr std::array<const char*, 4> kKeys = {
+  constexpr std::array<const char*, 5> kKeys = {
       "Left / Right: run      Space / Up: jump",
+      "M: next loop mode",
       "1-5: frame rate cap",
       "H: one 250 ms hitch",
       "J: random stutter on / off",

@@ -6,6 +6,15 @@
 /// @brief Everything that belongs to the game.
 namespace ticker {
 
+/// @brief How many simulation ticks make one second.
+inline constexpr int kTicksPerSecond = 60;
+/// @brief The length of one tick, in seconds.
+///
+/// A "tick" is one call to Step() with this fixed dt. With a fixed tick,
+/// the simulation gets the same step size on every computer, at every
+/// frame rate.
+inline constexpr float kTickSeconds = 1.0f / kTicksPerSecond;
+
 // Every number that sets how the game feels lives here, in one place.
 // Distances are in pixels and times are in seconds, so speeds are pixels per
 // second and gravity is pixels per second per second.

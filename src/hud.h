@@ -22,6 +22,10 @@ struct HudInfo {
   int frame_rate_cap = 0;
   /// @brief True if random short freezes are on.
   bool stutter = false;
+  /// @brief The name of the loop mode. A string literal, never null.
+  const char* loop_mode = "";
+  /// @brief Game time divided by real time. 1 means real speed.
+  float game_speed = 1;
   /// @brief Height of the last jump, in pixels.
   float jump_height = 0;
   /// @brief How many times the player has fallen out of the level.

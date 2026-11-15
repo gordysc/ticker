@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ticker Build Guide</title>
+<meta name="description" content="How Ticker was built in six stages, from a variable timestep to a fixed timestep with interpolation, replays and time controls.">
+<style>
+  :root {
+    --bg: #f7f6f2;
+    --surface: #ffffff;
+    --surface-2: #efede6;
+    --text: #1d1f24;
+    --muted: #5d6270;
+    --line: #dcd9cf;
+    --accent: #b5760b;
+    --accent-soft: #f6e6c4;
+    --good: #23865a;
+    --good-soft: #d7efe2;
+    --bad: #c2453b;
+    --bad-soft: #f6dcd8;
+    --info: #2f6db3;
+    --info-soft: #dce8f6;
+    --code-bg: #f0eee7;
+    --tile: #6b7391;
+    --player: #e9a520;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 16px rgba(0, 0, 0, 0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15171c;
+      --surface: #1d2027;
+      --surface-2: #252932;
+      --text: #e7e8ec;
+      --muted: #a0a6b4;
+      --line: #333845;
+      --accent: #ffc457;
+      --accent-soft: #3d3220;
+      --good: #6fd6a2;
+      --good-soft: #1d3a2d;
+      --bad: #f0857b;
+      --bad-soft: #43231f;
+      --info: #82b4f0;
+      --info-soft: #1f3048;
+      --code-bg: #262a33;
+      --tile: #8590b3;
+      --player: #ffc457;
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15171c;
+    --surface: #1d2027;
+    --surface-2: #252932;
+    --text: #e7e8ec;
+    --muted: #a0a6b4;
+    --line: #333845;
+    --accent: #ffc457;
+    --accent-soft: #3d3220;
+    --good: #6fd6a2;
+    --good-soft: #1d3a2d;
+    --bad: #f0857b;
+    --bad-soft: #43231f;
+    --info: #82b4f0;
+    --info-soft: #1f3048;
+    --code-bg: #262a33;
+    --tile: #8590b3;
+    --player: #ffc457;
+    --shadow: none;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, pre, .mono {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.88em;
+  }
+  code {
+    background: var(--code-bg);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    overflow-wrap: anywhere;
+  }
+  pre {
+    background: var(--code-bg);
+    padding: 14px 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    line-height: 1.5;
+    margin: 12px 0 18px;
+  }
+  pre code { background: none; padding: 0; font-size: 1em; }
+  a { color: var(--info); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 230px minmax(0, 1fr);
+    gap: 48px;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 40px 24px 96px;
+  }
+  nav.toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    font-size: 14px;
+  }
+  nav.toc .label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; }
+  nav.toc li { margin: 2px 0; }
+  nav.toc a {
+    display: block;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 4px 10px;
+    border-left: 2px solid var(--line);
+  }
+  nav.toc a:hover { color: var(--text); border-left-color: var(--accent); }
+  nav.toc .stage-num { color: var(--accent); font-weight: 600; margin-right: 4px; }
+
+  main { min-width: 0; max-width: 780px; }
+  header.hero { margin-bottom: 40px; }
+  .eyebrow {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  h1 { font-size: 40px; line-height: 1.15; margin: 8px 0 14px; letter-spacing: -0.02em; }
+  h2 {
+    font-size: 26px;
+    line-height: 1.25;
+    margin: 64px 0 12px;
+    letter-spacing: -0.01em;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+  }
+  h3 { font-size: 18px; margin: 28px 0 8px; }
+  .lede { font-size: 18px; color: var(--muted); margin: 0; }
+  p { margin: 10px 0; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 28px 0 0;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+  .stat .n { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+  .stat .l { font-size: 13px; color: var(--muted); }
+
+  .stage-tag {
+    display: inline-block;
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    background: var(--accent-soft);
+    color: var(--text);
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-bottom: 4px;
+  }
+  .stage-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .stage-head .num {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    box-shadow: var(--shadow);
+  }
+  .figure {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+    margin: 18px 0;
+    box-shadow: var(--shadow);
+  }
+  .figure svg { display: block; width: 100%; height: auto; }
+  .figure .caption { font-size: 13.5px; color: var(--muted); margin-top: 10px; }
+
+  .verdict {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .verdict > div {
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+  .verdict .fix { background: var(--good-soft); }
+  .verdict .cost { background: var(--bad-soft); }
+  .verdict b { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .verdict .fix b { color: var(--good); }
+  .verdict .cost b { color: var(--bad); }
+
+  .callout {
+    border-left: 3px solid var(--bad);
+    background: var(--bad-soft);
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    margin: 14px 0;
+    font-size: 15px;
+  }
+  .callout.note { border-left-color: var(--info); background: var(--info-soft); }
+
+  .table-wrap { overflow-x: auto; margin: 12px 0 18px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  th.num { text-align: right; }
+  .yes { color: var(--good); font-weight: 600; }
+  .no { color: var(--bad); font-weight: 600; }
+
+  .commits td { font-size: 14px; }
+  .commits .hash { font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace; color: var(--muted); white-space: nowrap; }
+  .type {
+    display: inline-block;
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-right: 6px;
+  }
+  .type.feat { background: var(--info-soft); color: var(--info); }
+  .type.fix { background: var(--bad-soft); color: var(--bad); }
+  .type.docs { background: var(--surface-2); color: var(--muted); }
+  .type.test { background: var(--good-soft); color: var(--good); }
+  .type.chore { background: var(--surface-2); color: var(--muted); }
+  .commits tr.tagrow td {
+    background: var(--accent-soft);
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    padding: 4px 10px;
+  }
+
+  ol.steps { padding-left: 22px; }
+  ol.steps li { margin: 4px 0; }
+  kbd {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 0 6px;
+  }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: baseline; font-size: 15px; }
+  .keys .k { white-space: nowrap; }
+  .readlist { margin: 6px 0; padding-left: 20px; }
+  .readlist li { margin: 3px 0; }
+
+  /* SVG colors follow the theme through CSS variables. */
+  .svg-text { fill: var(--text); font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .svg-muted { fill: var(--muted); font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .svg-mono { fill: var(--text); font: 12px "SF Mono", Menlo, Consolas, monospace; }
+  .svg-line { stroke: var(--line); }
+  .svg-axis { stroke: var(--muted); }
+  .svg-box { fill: var(--surface-2); stroke: var(--line); }
+  .svg-tile { fill: var(--tile); }
+  .svg-player { fill: var(--player); }
+  .svg-good { fill: var(--good); }
+  .svg-bad { fill: var(--bad); }
+  .svg-accent-stroke { stroke: var(--accent); }
+
+  footer { margin-top: 64px; color: var(--muted); font-size: 14px; }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; gap: 0; padding: 24px 16px 64px; }
+    nav.toc { position: static; margin-bottom: 24px; }
+    nav.toc ol { display: flex; flex-wrap: wrap; gap: 4px; }
+    nav.toc a { border-left: none; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+    h1 { font-size: 30px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .verdict { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc" aria-label="Contents">
+  <div class="label">Contents</div>
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#history">Read the history</a></li>
+    <li><a href="#design">The core design</a></li>
+    <li><a href="#base"><span class="stage-num">0</span>The base game</a></li>
+    <li><a href="#stage-1"><span class="stage-num">1</span>Variable timestep</a></li>
+    <li><a href="#stage-2"><span class="stage-num">2</span>Fixed step per frame</a></li>
+    <li><a href="#stage-3"><span class="stage-num">3</span>Accumulator</a></li>
+    <li><a href="#stage-4"><span class="stage-num">4</span>Interpolation</a></li>
+    <li><a href="#stage-5"><span class="stage-num">5</span>Replays</a></li>
+    <li><a href="#stage-6"><span class="stage-num">6</span>Time controls</a></li>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#commits">All commits</a></li>
+    <li><a href="#files">File map</a></li>
+    <li><a href="#tests">Tests</a></li>
+    <li><a href="#controls">Controls</a></li>
+    <li><a href="#notes">Notes</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<header class="hero" id="overview">
+  <div class="eyebrow">Ticker · build guide</div>
+  <h1>The game loop, in six stages</h1>
+  <p class="lede">Ticker is a small 2D platformer in C++20 and raylib. The git history builds its game loop one step at a time, from a naive variable timestep to a fixed timestep with interpolation, replays and time controls. This page explains each stage, the problem it shows and the commit that fixes it.</p>
+  <div class="stats">
+    <div class="stat"><div class="n">6</div><div class="l">stages, each with a git tag</div></div>
+    <div class="stat"><div class="n">25</div><div class="l">conventional commits in the build</div></div>
+    <div class="stat"><div class="n">28</div><div class="l">tests in 4 test programs</div></div>
+    <div class="stat"><div class="n">4</div><div class="l">loop modes to compare live</div></div>
+  </div>
+</header>
+
+<section id="history">
+  <h2>Read the history</h2>
+  <p>Each stage ends with a tag. Check out a tag to see the code and play the game as it was at the end of that stage.</p>
+<pre><code>git checkout stage-1-variable-timestep    # the naive loop
+git checkout stage-3-accumulator          # the fixed timestep
+git checkout main                         # the finished game</code></pre>
+  <p>To see what one stage changed, compare two tags:</p>
+<pre><code>git diff stage-2-fixed-step-per-frame stage-3-accumulator
+git diff --stat stage-3-accumulator stage-4-interpolation</code></pre>
+  <p>Every commit builds with no warnings. From the first test commit on, every commit also passes its tests. You can check out any commit, not only the tags.</p>
+  <div class="callout note">The written guide in <code>docs/game-loop.md</code> has the same content as this page in plain text, with a "Try it" list for each stage. The source files have teaching comments on every class, function and member.</div>
+</section>
+
+<section id="design">
+  <h2>The core design</h2>
+  <p>One decision makes every later stage possible. The simulation and the program around it are separate.</p>
+  <ul class="readlist">
+    <li><code>Step(world, level, input, dt)</code> in <code>src/world.cpp</code> is the whole game logic. It reads no clock and no keyboard. The caller gives it the input and the time to advance.</li>
+    <li><code>World</code> holds all of the state that <code>Step()</code> can change. It is a plain struct of values with no pointers, so a copy is a full snapshot of the game.</li>
+    <li><code>App</code> in <code>src/app.cpp</code> is the program around the simulation. It measures time, reads keys, decides how many times to call <code>Step()</code>, and draws.</li>
+  </ul>
+  <p>Every stage changes how <code>App</code> calls <code>Step()</code>. No stage changes how <code>Step()</code> uses the time it gets.</p>
+
+  <div class="figure">
+    <svg viewBox="0 0 640 176" role="img" aria-labelledby="arch-title">
+      <title id="arch-title">The final game loop: real time and keys go into the clock and the input latch, which drive Step a whole number of times, then the frame draws between the last two ticks.</title>
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" style="fill: var(--muted)"/>
+        </marker>
+      </defs>
+      <g>
+        <rect class="svg-box" x="2" y="20" width="136" height="110" rx="8"/>
+        <text class="svg-text" x="70" y="48" text-anchor="middle" font-weight="600">raylib</text>
+        <text class="svg-muted" x="70" y="72" text-anchor="middle">GetTime()</text>
+        <text class="svg-muted" x="70" y="90" text-anchor="middle">IsKeyDown()</text>
+        <text class="svg-muted" x="70" y="108" text-anchor="middle">IsKeyPressed()</text>
+
+        <rect class="svg-box" x="168" y="20" width="136" height="110" rx="8"/>
+        <text class="svg-text" x="236" y="48" text-anchor="middle" font-weight="600">App::Frame()</text>
+        <text class="svg-muted" x="236" y="72" text-anchor="middle">FixedStepClock</text>
+        <text class="svg-muted" x="236" y="90" text-anchor="middle">→ N ticks, alpha</text>
+        <text class="svg-muted" x="236" y="108" text-anchor="middle">InputLatch</text>
+
+        <rect x="334" y="20" width="136" height="110" rx="8" style="fill: var(--accent-soft); stroke: var(--accent)"/>
+        <text class="svg-text" x="402" y="48" text-anchor="middle" font-weight="600">Step() × N</text>
+        <text class="svg-muted" x="402" y="72" text-anchor="middle">dt = 1/60 s</text>
+        <text class="svg-muted" x="402" y="90" text-anchor="middle">no clock</text>
+        <text class="svg-muted" x="402" y="108" text-anchor="middle">no keyboard</text>
+
+        <rect class="svg-box" x="500" y="20" width="136" height="110" rx="8"/>
+        <text class="svg-text" x="568" y="48" text-anchor="middle" font-weight="600">Draw()</text>
+        <text class="svg-muted" x="568" y="72" text-anchor="middle">lerp(previous,</text>
+        <text class="svg-muted" x="568" y="90" text-anchor="middle">current, alpha)</text>
+        <text class="svg-muted" x="568" y="108" text-anchor="middle">+ debug sidebar</text>
+
+        <line x1="140" y1="75" x2="164" y2="75" class="svg-axis" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <line x1="306" y1="75" x2="330" y2="75" class="svg-axis" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <line x1="472" y1="75" x2="496" y2="75" class="svg-axis" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <text class="svg-muted" x="402" y="160" text-anchor="middle">The simulation (highlighted) is the same in every stage.</text>
+      </g>
+    </svg>
+    <div class="caption">The final loop. Stages 1 to 6 each add one part of the middle box or the drawing.</div>
+  </div>
+</section>
+
+<section id="base">
+  <h2>The base game</h2>
+  <p>Before the loop work starts, eight commits build a small platformer to test it with. The game copies the layout and conventions of the breakout template: CMake 3.24, C++20, Google clang-format style, a flat <code>src/</code> folder, a core static library that the game and the tests both link, and Linux CI.</p>
+  <ul class="readlist">
+    <li><b>Level.</b> <code>kLevelMap</code> in <code>src/level.h</code> is a text grid of 30 × 22 tiles of 32 px. The block in the bottom-left corner is exactly 3 tiles (96 px) tall. It is a ruler for the jump height.</li>
+    <li><b>Player.</b> The player runs at 260 px/s, falls with a gravity of 2000 px/s², and jumps at 660 px/s. Collision moves the box the full distance, then pushes it out of solid tiles.</li>
+    <li><b>Jump feel.</b> Coyote time and a jump buffer give a 0.1 s grace window on each side of a ledge.</li>
+    <li><b>Coins.</b> One coin moves to a random spawn point when the player collects it. The world owns its own xorshift32 generator, so the seed alone decides where coins appear.</li>
+    <li><b>Debug sidebar.</b> A panel to the right of the level shows FPS, frame time, a frame time graph, the last jump height and the number of falls out of the level.</li>
+    <li><b>Frame rate tools.</b> Keys <kbd>1</kbd>–<kbd>5</kbd> cap the frame rate. <kbd>H</kbd> freezes one frame for 250 ms. <kbd>J</kbd> adds random short freezes.</li>
+  </ul>
+</section>
+
+<section id="stage-1">
+  <div class="stage-head"><span class="num">Stage 1</span><span class="stage-tag">stage-1-variable-timestep</span></div>
+  <h2 style="border-top:none;margin-top:4px;padding-top:0">The variable timestep</h2>
+  <p>Each frame measures the time since the last frame and passes it to <code>Step()</code> as <code>dt</code>. Each speed is multiplied by <code>dt</code>, so the player runs the same distance each second at any frame rate. Shardfield uses this loop.</p>
+<pre><code>const double now = GetTime();
+const float dt = static_cast&lt;float&gt;(now - last_frame_start_);
+last_frame_start_ = now;
+Step(world_, level_, ReadInput(), dt);</code></pre>
+  <p>The loop looks correct, but the size of each step now changes from frame to frame. That causes three problems.</p>
+
+  <h3>Problem 1: the jump height depends on the frame rate</h3>
+  <p><code>Step()</code> changes the velocity first, then moves the player by the new velocity. This is semi-implicit Euler integration. It assumes that the velocity stays the same for the full step, so each step has an error, and a bigger step has a bigger error.</p>
+  <div class="figure">
+    <svg viewBox="0 0 640 230" role="img" aria-labelledby="jump-title">
+      <title id="jump-title">Jump height at four frame rates: 106.6 px at 144 FPS, 103.4 at 60, 98.0 at 30 and 87.1 at 15. The block needs 96 px.</title>
+      <!-- x = 96 + height * 4.6 -->
+      <line x1="96" y1="16" x2="96" y2="196" class="svg-axis"/>
+      <g>
+        <text class="svg-text" x="86" y="40" text-anchor="end">144 FPS</text>
+        <rect x="96" y="24" width="490.4" height="26" rx="3" class="svg-good"/>
+        <text class="svg-mono" x="106" y="42" text-anchor="start" style="fill: var(--bg)">106.6 px</text>
+
+        <text class="svg-text" x="86" y="84" text-anchor="end">60 FPS</text>
+        <rect x="96" y="68" width="475.6" height="26" rx="3" class="svg-good"/>
+        <text class="svg-mono" x="106" y="86" text-anchor="start" style="fill: var(--bg)">103.4 px</text>
+
+        <text class="svg-text" x="86" y="128" text-anchor="end">30 FPS</text>
+        <rect x="96" y="112" width="450.8" height="26" rx="3" class="svg-good"/>
+        <text class="svg-mono" x="106" y="130" text-anchor="start" style="fill: var(--bg)">98.0 px</text>
+
+        <text class="svg-text" x="86" y="172" text-anchor="end">15 FPS</text>
+        <rect x="96" y="156" width="400.7" height="26" rx="3" class="svg-bad"/>
+        <text class="svg-mono" x="106" y="174" text-anchor="start" style="fill: var(--bg)">87.1 px</text>
+      </g>
+      <line x1="537.6" y1="12" x2="537.6" y2="196" stroke-width="2" stroke-dasharray="5 4" class="svg-accent-stroke"/>
+      <text class="svg-text" x="531" y="214" text-anchor="end" style="fill: var(--accent)" font-weight="600">block: 96 px</text>
+      <line x1="596.9" y1="12" x2="596.9" y2="196" stroke-width="1.5" stroke-dasharray="2 4" class="svg-axis"/>
+      <text class="svg-muted" x="603" y="214" text-anchor="start">exact</text>
+    </svg>
+    <div class="caption">Heights measured by the game's own code. At 15 FPS the player cannot get onto the block. The exact height, <code>v² / 2g</code>, is never reached.</div>
+  </div>
+
+  <h3>Problem 2: tunneling</h3>
+  <p>Collision looks only at where the box ends up, not at the path between. <kbd>H</kbd> makes the next frame pass <code>dt = 0.25</code>. Gravity adds 500 px/s, and the player moves 125 px in one step. The floor is 32 px thick, so the box goes from above the floor to below it and never overlaps it.</p>
+  <div class="figure">
+    <svg viewBox="0 0 640 200" role="img" aria-labelledby="tunnel-title">
+      <title id="tunnel-title">Left: small steps land on the floor. Right: one large step moves the box from above the floor to below it, so the collision test finds nothing.</title>
+      <text class="svg-text" x="150" y="20" text-anchor="middle" font-weight="600">60 small steps per second</text>
+      <rect x="60" y="120" width="180" height="26" class="svg-tile"/>
+      <rect x="130" y="40" width="22" height="28" fill="none" class="svg-axis" stroke-dasharray="3 3"/>
+      <rect x="130" y="56" width="22" height="28" fill="none" class="svg-axis" stroke-dasharray="3 3"/>
+      <rect x="130" y="74" width="22" height="28" fill="none" class="svg-axis" stroke-dasharray="3 3"/>
+      <rect x="130" y="92" width="22" height="28" class="svg-player"/>
+      <text class="svg-muted" x="150" y="172" text-anchor="middle">Each step is at most 15 px. The box lands.</text>
+
+      <line x1="320" y1="16" x2="320" y2="184" class="svg-line"/>
+
+      <text class="svg-text" x="490" y="20" text-anchor="middle" font-weight="600">One 250 ms step</text>
+      <rect x="400" y="94" width="180" height="26" class="svg-tile"/>
+      <rect x="470" y="60" width="22" height="28" fill="none" class="svg-axis" stroke-dasharray="3 3"/>
+      <rect x="470" y="150" width="22" height="28" class="svg-player"/>
+      <line x1="510" y1="74" x2="510" y2="160" class="svg-axis" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <text class="svg-muted" x="518" y="142">125 px</text>
+      <text class="svg-muted" x="490" y="196" text-anchor="middle">The box never overlaps the floor. It falls out.</text>
+    </svg>
+  </div>
+
+  <h3>Problem 3: no two runs are the same</h3>
+  <p>The frame times come from the computer, not from the game. The same key presses give a slightly different game each time. Stage 5 shows why that matters.</p>
+
+  <div class="card">
+    <b>Commits in this stage:</b> scaffold, level, player, jumps, coins, world tests, frame rate keys, debug sidebar, and the first part of the guide.
+    <br><b>Code to read:</b> <code>App::Frame()</code>, <code>Step()</code>, <code>MoveX()</code>, <code>MoveY()</code>, <code>TestJumpHeightDependsOnStepSize()</code>, <code>TestBigStepTunnelsThroughFloor()</code>.
+  </div>
+</section>
+
+<section id="stage-2">
+  <div class="stage-head"><span class="num">Stage 2</span><span class="stage-tag">stage-2-fixed-step-per-frame</span></div>
+  <h2 style="border-top:none;margin-top:4px;padding-top:0">A fixed step per frame</h2>
+  <p>The second loop mode ignores the frame time. Each frame calls <code>Step()</code> one time with <code>dt = kTickSeconds</code> (1/60 s). One call with this fixed <code>dt</code> is a <b>tick</b>. The <kbd>M</kbd> key, added here, changes the loop mode while the game runs.</p>
+  <div class="verdict">
+    <div class="fix"><b>Fixes</b>The jump is 103.4 px at every frame rate. Tunneling is gone: at 900 px/s the player falls 15 px per tick, less than a 32 px tile. Three <code>static_assert</code> lines in <code>src/world.cpp</code> fail the build if a tuning change breaks that rule.</div>
+    <div class="cost"><b>Breaks</b>The game runs at the speed of the frames. At 15 FPS a quarter of a second of game time passes each real second. At 144 FPS the game runs 2.4 times too fast. The sidebar now shows "game speed".</div>
+  </div>
+  <p>Old consoles used this loop, because the console and the TV ran at one fixed rate. European TVs ran at 50 Hz, so those games ran about 17% slower in Europe.</p>
+  <div class="card">
+    <b>Commit:</b> <code>e753123</code> feat: step the simulation by a fixed tick once per frame.
+    <br><b>Code to read:</b> <code>App::Update()</code>, <code>kTickSeconds</code> in <code>src/tuning.h</code>, the <code>static_assert</code> lines in <code>src/world.cpp</code>.
+  </div>
+</section>
+
+<section id="stage-3">
+  <div class="stage-head"><span class="num">Stage 3</span><span class="stage-tag">stage-3-accumulator</span></div>
+  <h2 style="border-top:none;margin-top:4px;padding-top:0">The accumulator</h2>
+  <p>Stage 1 gets the speed right and the physics wrong. Stage 2 gets the physics right and the speed wrong. The accumulator gets both right. This is the loop from Glenn Fiedler's article "Fix Your Timestep!".</p>
+  <p><code>FixedStepClock</code> adds each frame's real length to an accumulator, then takes out whole ticks. Time too short for a full tick stays for the next frame. A fast frame can run 0 ticks and a slow frame can run several, but over a second there are always 60.</p>
+<pre><code>int FixedStepClock::Advance(double frame_seconds) {
+  accumulator_ += frame_seconds;
+  int ticks = 0;
+  while (accumulator_ &gt;= tick_seconds_ &amp;&amp; ticks &lt; max_ticks_per_frame_) {
+    accumulator_ -= tick_seconds_;
+    ++ticks;
+  }
+  // ... drop any time beyond the cap (see below)
+  return ticks;
+}</code></pre>
+
+  <div class="figure">
+    <svg viewBox="0 0 640 170" role="img" aria-labelledby="acc-title">
+      <title id="acc-title">Frames of uneven length on top, ticks every 16.7 ms below. The number in each frame is how many ticks it runs.</title>
+      <!-- x = 20 + ms * 6 -->
+      <text class="svg-muted" x="20" y="18">Frames (real time, uneven)</text>
+      <g>
+        <rect x="20" y="26" width="42" height="40" rx="3" class="svg-box"/>
+        <text class="svg-mono" x="41" y="51" text-anchor="middle">0</text>
+        <rect x="62" y="26" width="42" height="40" rx="3" class="svg-box"/>
+        <text class="svg-mono" x="83" y="51" text-anchor="middle">0</text>
+        <rect x="104" y="26" width="42" height="40" rx="3" style="fill: var(--accent-soft); stroke: var(--accent)"/>
+        <text class="svg-mono" x="125" y="51" text-anchor="middle">1</text>
+        <rect x="146" y="26" width="42" height="40" rx="3" class="svg-box"/>
+        <text class="svg-mono" x="167" y="51" text-anchor="middle">0</text>
+        <rect x="188" y="26" width="204" height="40" rx="3" style="fill: var(--accent-soft); stroke: var(--accent)"/>
+        <text class="svg-mono" x="290" y="51" text-anchor="middle">2 ticks (a slow frame)</text>
+        <rect x="392" y="26" width="42" height="40" rx="3" style="fill: var(--accent-soft); stroke: var(--accent)"/>
+        <text class="svg-mono" x="413" y="51" text-anchor="middle">1</text>
+        <rect x="434" y="26" width="42" height="40" rx="3" class="svg-box"/>
+        <text class="svg-mono" x="455" y="51" text-anchor="middle">0</text>
+        <rect x="476" y="26" width="42" height="40" rx="3" class="svg-box"/>
+        <text class="svg-mono" x="497" y="51" text-anchor="middle">0</text>
+        <rect x="518" y="26" width="102" height="40" rx="3" style="fill: var(--accent-soft); stroke: var(--accent)"/>
+        <text class="svg-mono" x="569" y="51" text-anchor="middle">2</text>
+      </g>
+      <line x1="20" y1="104" x2="620" y2="104" class="svg-axis"/>
+      <g class="svg-good">
+        <circle cx="120" cy="104" r="6"/>
+        <circle cx="220" cy="104" r="6"/>
+        <circle cx="320" cy="104" r="6"/>
+        <circle cx="420" cy="104" r="6"/>
+        <circle cx="520" cy="104" r="6"/>
+        <circle cx="620" cy="104" r="6"/>
+      </g>
+      <text class="svg-muted" x="20" y="132">Ticks (game time, every 16.7 ms)</text>
+      <text class="svg-muted" x="620" y="132" text-anchor="end">100 ms = 6 ticks</text>
+      <text class="svg-muted" x="20" y="158">A tick runs in the first frame that ends after its time. The total is always correct.</text>
+    </svg>
+  </div>
+
+  <p>This stage has four commits: one adds the clock, and the next three show two problems and their fixes.</p>
+
+  <h3>Problem 1: the spiral of death</h3>
+  <p>If one tick takes longer to run than the 16.7 ms it simulates, a slow frame owes more ticks, which makes the next frame slower, which owes even more. <kbd>K</kbd> makes each tick take 25 ms to show this. The fix is <code>kMaxTicksPerFrame</code> (8): the clock runs at most 8 ticks per frame and drops the rest of the time. The game then runs slower than real time, but it does not freeze.</p>
+  <div class="figure">
+    <svg viewBox="0 0 640 220" role="img" aria-labelledby="spiral-title">
+      <title id="spiral-title">Ticks per frame with 25 ms ticks. Without a cap, the count grows to 162 in 14 frames. With a cap of 8, it stays at 8.</title>
+      <!-- log scale: y = 186 - log10(n) * 70 ; x = 60 + (frame-1) * 42 -->
+      <line x1="60" y1="186" x2="620" y2="186" class="svg-axis"/>
+      <line x1="60" y1="20" x2="60" y2="186" class="svg-axis"/>
+      <g>
+        <line x1="60" y1="116" x2="620" y2="116" class="svg-line" stroke-dasharray="2 4"/>
+        <line x1="60" y1="46" x2="620" y2="46" class="svg-line" stroke-dasharray="2 4"/>
+        <text class="svg-muted" x="52" y="190" text-anchor="end">1</text>
+        <text class="svg-muted" x="52" y="120" text-anchor="end">10</text>
+        <text class="svg-muted" x="52" y="50" text-anchor="end">100</text>
+      </g>
+      <!-- no cap: 1,1,2,3,4,6,9,14,21,32,48,72,108,162 -->
+      <polyline fill="none" stroke-width="2.5" style="stroke: var(--bad)"
+        points="60,186 102,186 144,164.9 186,152.6 228,143.9 270,131.5 312,119.2 354,105.8 396,93.4 438,80.6 480,68.3 522,56.0 564,43.7 606,31.3"/>
+      <!-- cap 8: 1,1,2,3,4,6,8,8,... -->
+      <polyline fill="none" stroke-width="2.5" style="stroke: var(--good)"
+        points="60,186 102,186 144,164.9 186,152.6 228,143.9 270,131.5 312,122.8 354,122.8 396,122.8 438,122.8 480,122.8 522,122.8 564,122.8 606,122.8"/>
+      <text class="svg-text" x="600" y="24" text-anchor="end" style="fill: var(--bad)" font-weight="600">no cap: 162 ticks</text>
+      <text class="svg-text" x="606" y="140" text-anchor="end" style="fill: var(--good)" font-weight="600">cap: 8 ticks</text>
+      <text class="svg-muted" x="340" y="210" text-anchor="middle">Frame number (1 to 14). Ticks per frame on a log scale.</text>
+    </svg>
+    <div class="caption">Ticks per frame when each tick costs 25 ms, from the same model as <code>TestSlowTicksStayAtTheLimit()</code>. Without the cap, frame 14 takes about 4 s.</div>
+  </div>
+
+  <h3>Problem 2: lost jump presses</h3>
+  <p>raylib reports a key press on one frame only. At 144 FPS more than half of the frames run no tick, so more than half of the jump presses are lost. A slow frame runs several ticks, and each sees the same press. <code>InputLatch</code> in <code>src/input.h</code> keeps each press until exactly one tick takes it. Held keys follow the latest frame.</p>
+
+  <div class="callout"><b>Warning:</b> At <code>stage-3-accumulator~3</code>, <kbd>K</kbd> freezes the game in the accumulator mode. Stop the program from CLion or the terminal. At <code>stage-3-accumulator~2</code>, jump presses at high frame rates often do nothing.</div>
+  <div class="card">
+    <b>Commits:</b> <code>abb7f70</code> clock, <code>7ff6d0d</code> slow tick switch, <code>3ae99a0</code> tick cap fix, <code>0f865e8</code> input latch fix.
+    <br><b>Code to read:</b> <code>FixedStepClock::Advance()</code>, the <code>LoopMode::Accumulator</code> case of <code>App::Update()</code>, <code>App::RunStep()</code>, <code>InputLatch</code>, <code>tests/clock_test.cpp</code>, <code>tests/input_test.cpp</code>.
+  </div>
+</section>
+
+<section id="stage-4">
+  <div class="stage-head"><span class="num">Stage 4</span><span class="stage-tag">stage-4-interpolation</span></div>
+  <h2 style="border-top:none;margin-top:4px;padding-top:0">Interpolation</h2>
+  <p>The accumulator makes the simulation correct, but the drawing can look uneven. A frame with no tick draws the player in the same place as the frame before. The next frame moves the player a full tick. The motion steps instead of slides. This is judder.</p>
+  <p>After the last tick of a frame, real time is a little ahead of that tick. <code>FixedStepClock::Alpha()</code> gives the extra time as a fraction of a tick. <code>App</code> keeps a copy of the world from before the last tick in <code>previous_world_</code>, and draws the player between the two copies by alpha.</p>
+  <div class="figure">
+    <svg viewBox="0 0 640 210" role="img" aria-labelledby="lerp-title">
+      <title id="lerp-title">The player is drawn 60 percent of the way from the previous tick to the last tick, because real time is 60 percent of a tick past the last tick.</title>
+      <rect x="40" y="128" width="560" height="10" class="svg-tile"/>
+      <rect x="150" y="72" width="44" height="56" fill="none" stroke-width="2" class="svg-axis" stroke-dasharray="5 4"/>
+      <text class="svg-muted" x="172" y="62" text-anchor="middle">previous tick</text>
+      <rect x="330" y="72" width="44" height="56" fill="none" stroke-width="2" style="stroke: var(--text)"/>
+      <text class="svg-text" x="352" y="62" text-anchor="middle">last tick</text>
+      <rect x="258" y="72" width="44" height="56" class="svg-player" opacity="0.92"/>
+      <text class="svg-text" x="280" y="34" text-anchor="middle" style="fill: var(--accent)" font-weight="600">drawn here</text>
+      <line x1="280" y1="40" x2="280" y2="68" class="svg-accent-stroke" stroke-width="1.5"/>
+
+      <line x1="40" y1="172" x2="600" y2="172" class="svg-axis"/>
+      <g class="svg-mono">
+        <line x1="172" y1="166" x2="172" y2="178" class="svg-axis"/>
+        <text x="172" y="196" text-anchor="middle">T − 1</text>
+        <line x1="352" y1="166" x2="352" y2="178" class="svg-axis"/>
+        <text x="352" y="196" text-anchor="middle">T</text>
+        <line x1="532" y1="166" x2="532" y2="178" class="svg-axis"/>
+        <text x="532" y="196" text-anchor="middle">T + 1</text>
+      </g>
+      <circle cx="460" cy="172" r="6" class="svg-good"/>
+      <text class="svg-text" x="460" y="160" text-anchor="middle" style="fill: var(--good)">now (alpha = 0.6)</text>
+    </svg>
+    <div class="caption">The drawing is up to one tick (16.7 ms) late, but it moves smoothly at any frame rate.</div>
+  </div>
+  <p><b>Teleports.</b> A respawn moves the player across the level in one tick. A line between the two places would show the player fly across the screen. <code>LerpPlayerPosition()</code> sees that <code>falls</code> changed and draws the new place at once.</p>
+  <p><b>Tools to see it.</b> <kbd>S</kbd> turns on slow motion (6 ticks per second). <kbd>G</kbd> draws outlines at the last two ticks. In mode 3 the player jumps from outline to outline. In mode 4 it slides between them.</p>
+  <div class="card">
+    <b>Commits:</b> <code>81fcee8</code> interpolation, <code>a9a41ed</code> slow motion and tick ghosts.
+    <br><b>Code to read:</b> <code>App::RunStep()</code>, <code>App::DrawnPlayerPosition()</code>, <code>LerpPlayerPosition()</code>, <code>FixedStepClock::Alpha()</code>.
+  </div>
+</section>
+
+<section id="stage-5">
+  <div class="stage-head"><span class="num">Stage 5</span><span class="stage-tag">stage-5-replays</span></div>
+  <h2 style="border-top:none;margin-top:4px;padding-top:0">Deterministic replays</h2>
+  <p>With a fixed tick, <code>Step()</code> is deterministic: the same start and the same inputs give the same world, bit for bit. A replay uses that. It holds only three things:</p>
+  <ol class="steps">
+    <li>The seed of the world's random number generator.</li>
+    <li>The <code>Input</code> of every tick. Ten minutes of play is 36,000 small values.</li>
+    <li>A hash of the world after the last tick.</li>
+  </ol>
+  <p><code>HashWorld()</code> runs FNV-1a over the exact bits of every field of <code>World</code>. A change of one bit in one float gives a different hash. <kbd>R</kbd> starts a new world from a seed and records. <kbd>R</kbd> again plays the inputs back from the same seed and compares the hashes. The sidebar shows <span class="yes">MATCH</span> or <span class="no">DESYNC</span>.</p>
+
+  <h3>What determinism needs</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Need</th><th>How Ticker meets it</th></tr></thead>
+      <tbody>
+        <tr><td>A fixed <code>dt</code></td><td>Every tick uses <code>kTickSeconds</code>. In variable timestep mode a replay gives DESYNC.</td></tr>
+        <tr><td>The input of each tick, not each frame</td><td><code>App::RunStep()</code> records the input after the <code>InputLatch</code>.</td></tr>
+        <tr><td>Randomness inside the world</td><td><code>World::random</code> changes only in <code>Step()</code>. The stutter has a separate generator.</td></tr>
+        <tr><td>A random generator with a known output</td><td><code>Random</code> is xorshift32. Standard library distributions can differ between compilers.</td></tr>
+        <tr><td>The same floating-point maths</td><td>The same build on the same computer is exact. Across computers, games use fixed-point maths or strict compiler settings.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><code>TestFixedTicksIgnoreFrameRate()</code> runs the same 600 ticks at 15, 60 and 144 FPS and gets the same hash. <code>TestVariableTimestepDependsOnFrameRate()</code> shows the opposite.</p>
+  <div class="card">
+    <b>Commits:</b> <code>dd0dd2c</code> world hash, <code>0739d44</code> record and replay.
+    <br><b>Code to read:</b> <code>HashWorld()</code>, <code>Replay</code> and <code>PlayBack()</code> in <code>src/replay.h</code>, the replay methods of <code>App</code>, <code>tests/replay_test.cpp</code>.
+  </div>
+</section>
+
+<section id="stage-6">
+  <div class="stage-head"><span class="num">Stage 6</span><span class="stage-tag">stage-6-time-controls</span></div>
+  <h2 style="border-top:none;margin-top:4px;padding-top:0">Time controls</h2>
+  <p>Pause, one tick at a time, slow motion and fast forward all follow one rule:</p>
+  <div class="callout note" style="font-size:17px"><b>Scale the time that goes into the accumulator. Never scale <code>dt</code>.</b></div>
+  <p><code>App::Frame()</code> multiplies the real frame time by <code>App::TimeScale()</code> before the clock sees it. Every tick still has the same <code>dt</code>, so the physics does not change and replays still match.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Key</th><th>Scale</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td><kbd>P</kbd></td><td class="num">0</td><td>No time goes into the accumulator, so the frame after the pause does not run a burst of ticks.</td></tr>
+        <tr><td><kbd>N</kbd></td><td class="num">—</td><td>While paused, runs exactly one tick. Keys pressed while paused wait in the latch for it.</td></tr>
+        <tr><td><kbd>S</kbd></td><td class="num">0.1</td><td>Slow motion: one tick for every ten frames at 60 FPS.</td></tr>
+        <tr><td><kbd>F</kbd> (hold)</td><td class="num">4</td><td>Fast forward: 4 ticks per frame at 60 FPS. At 15 FPS it needs 16, so the tick cap limits it to about x2.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The variable timestep mode can only scale <code>dt</code>, so there slow motion makes the jump higher and fast forward makes it lower.</p>
+  <div class="card">
+    <b>Commits:</b> <code>d5e92f3</code> pause and single tick step, <code>02ce009</code> fast forward.
+    <br><b>Code to read:</b> <code>App::TimeScale()</code>, <code>App::Update()</code>, <code>App::HandleFrameKeys()</code>.
+  </div>
+</section>
+
+<section id="summary">
+  <h2>Summary</h2>
+  <p>Push <kbd>M</kbd> in the game to switch between these four loops while it runs.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Loop mode</th><th>Same physics at all frame rates</th><th>Real speed</th><th>Smooth drawing</th><th>Replays match</th></tr></thead>
+      <tbody>
+        <tr><td>1. Variable timestep</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">No</td></tr>
+        <tr><td>2. Fixed step per frame</td><td class="yes">Yes</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+        <tr><td>3. Accumulator</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">No (judder)</td><td class="yes">Yes</td></tr>
+        <tr><td>4. Accumulator + interpolation</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The final <code>App::Frame()</code> does these things in order:</p>
+  <ol class="steps">
+    <li>Measure the real time since the last frame.</li>
+    <li>Multiply it by the time scale.</li>
+    <li>Add it to the accumulator, and take out whole ticks, up to the cap of 8.</li>
+    <li>Run one <code>Step()</code> with a fixed <code>dt</code> for each tick, with input from the latch.</li>
+    <li>Draw the world between the last two ticks, by alpha.</li>
+  </ol>
+</section>
+
+<section id="commits">
+  <h2>All commits</h2>
+  <p>Oldest first. A tag row marks the end of each stage.</p>
+  <div class="table-wrap">
+    <table class="commits">
+      <tbody>
+        <tr><td class="hash">5876130</td><td><span class="type chore">chore</span>scaffold project from breakout template</td></tr>
+        <tr><td class="hash">6b8d897</td><td><span class="type feat">feat</span>add tile level loaded from a text map</td></tr>
+        <tr><td class="hash">903f098</td><td><span class="type feat">feat</span>add player that runs and falls with gravity</td></tr>
+        <tr><td class="hash">6144bed</td><td><span class="type feat">feat</span>add jumping with coyote time and jump buffering</td></tr>
+        <tr><td class="hash">17b8582</td><td><span class="type feat">feat</span>add coins that respawn at random spawn points</td></tr>
+        <tr><td class="hash">1332254</td><td><span class="type test">test</span>add simulation tests for collision, jumps and coins</td></tr>
+        <tr><td class="hash">060d54d</td><td><span class="type feat">feat</span>add frame rate cap, hitch and stutter keys</td></tr>
+        <tr><td class="hash">bccf517</td><td><span class="type feat">feat</span>add debug sidebar with frame stats and jump height</td></tr>
+        <tr><td class="hash">545eeda</td><td><span class="type docs">docs</span>start game loop guide with stage 1</td></tr>
+        <tr class="tagrow"><td></td><td>tag: stage-1-variable-timestep</td></tr>
+        <tr><td class="hash">e753123</td><td><span class="type feat">feat</span>step the simulation by a fixed tick once per frame</td></tr>
+        <tr><td class="hash">9627615</td><td><span class="type docs">docs</span>add stage 2 to the game loop guide</td></tr>
+        <tr class="tagrow"><td></td><td>tag: stage-2-fixed-step-per-frame</td></tr>
+        <tr><td class="hash">abb7f70</td><td><span class="type feat">feat</span>add fixed-step clock with an accumulator</td></tr>
+        <tr><td class="hash">7ff6d0d</td><td><span class="type feat">feat</span>add slow tick switch to show the spiral of death</td></tr>
+        <tr><td class="hash">3ae99a0</td><td><span class="type fix">fix</span>cap ticks per frame to stop the spiral of death</td></tr>
+        <tr><td class="hash">0f865e8</td><td><span class="type fix">fix</span>keep jump presses that arrive on frames with no tick</td></tr>
+        <tr><td class="hash">2f44029</td><td><span class="type docs">docs</span>add stage 3 to the game loop guide</td></tr>
+        <tr class="tagrow"><td></td><td>tag: stage-3-accumulator</td></tr>
+        <tr><td class="hash">81fcee8</td><td><span class="type feat">feat</span>interpolate drawing between the last two ticks</td></tr>
+        <tr><td class="hash">a9a41ed</td><td><span class="type feat">feat</span>add slow motion and tick ghosts to show interpolation</td></tr>
+        <tr><td class="hash">2039210</td><td><span class="type docs">docs</span>add stage 4 to the game loop guide</td></tr>
+        <tr class="tagrow"><td></td><td>tag: stage-4-interpolation</td></tr>
+        <tr><td class="hash">dd0dd2c</td><td><span class="type feat">feat</span>add world hash</td></tr>
+        <tr><td class="hash">0739d44</td><td><span class="type feat">feat</span>record and replay inputs per tick</td></tr>
+        <tr><td class="hash">2e1b3ce</td><td><span class="type docs">docs</span>add stage 5 to the game loop guide</td></tr>
+        <tr class="tagrow"><td></td><td>tag: stage-5-replays</td></tr>
+        <tr><td class="hash">d5e92f3</td><td><span class="type feat">feat</span>add pause and single tick step</td></tr>
+        <tr><td class="hash">02ce009</td><td><span class="type feat">feat</span>add fast forward</td></tr>
+        <tr><td class="hash">0bc6e77</td><td><span class="type docs">docs</span>add stage 6 and a summary to the game loop guide</td></tr>
+        <tr class="tagrow"><td></td><td>tag: stage-6-time-controls</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="files">
+  <h2>File map</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>File</th><th>What it holds</th><th class="num">Lines</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/main.cpp</code></td><td>Opens the window and calls <code>App::Frame()</code> until it closes.</td><td class="num">24</td></tr>
+        <tr><td><code>src/app.h</code>, <code>app.cpp</code></td><td>The game loop: <code>LoopMode</code>, the clock, the input latch, replays, time controls, debug keys and drawing.</td><td class="num">580</td></tr>
+        <tr><td><code>src/world.h</code>, <code>world.cpp</code></td><td><code>World</code>, <code>Step()</code>, collision, coins, jump measurement, <code>LerpPlayerPosition()</code> and <code>HashWorld()</code>.</td><td class="num">478</td></tr>
+        <tr><td><code>src/clock.h</code>, <code>clock.cpp</code></td><td><code>FixedStepClock</code>: the accumulator, the tick cap and alpha.</td><td class="num">113</td></tr>
+        <tr><td><code>src/input.h</code>, <code>input.cpp</code></td><td><code>Input</code>, <code>ReadInput()</code> and <code>InputLatch</code>.</td><td class="num">90</td></tr>
+        <tr><td><code>src/replay.h</code>, <code>replay.cpp</code></td><td><code>Replay</code>, <code>ReplayState</code>, <code>ReplayResult</code> and <code>PlayBack()</code>.</td><td class="num">86</td></tr>
+        <tr><td><code>src/level.h</code>, <code>level.cpp</code></td><td>The text map and the <code>Level</code> grid.</td><td class="num">172</td></tr>
+        <tr><td><code>src/random.h</code>, <code>random.cpp</code></td><td>The xorshift32 generator.</td><td class="num">88</td></tr>
+        <tr><td><code>src/hud.h</code>, <code>hud.cpp</code></td><td>The debug sidebar and the frame time graph.</td><td class="num">272</td></tr>
+        <tr><td><code>src/render.h</code>, <code>render.cpp</code></td><td>Draws tiles, the coin, the player and the tick outlines.</td><td class="num">100</td></tr>
+        <tr><td><code>src/tuning.h</code></td><td>Every gameplay number: speeds, gravity, the tick length and the tick cap.</td><td class="num">66</td></tr>
+        <tr><td><code>src/screen.h</code></td><td>Window, level area and sidebar sizes.</td><td class="num">29</td></tr>
+        <tr><td><code>docs/game-loop.md</code></td><td>The written guide, one section per stage.</td><td class="num">469</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="tests">
+  <h2>Tests</h2>
+  <p>The tests use the same small <code>CHECK()</code> harness as Shardfield, in <code>tests/check.h</code>. They need no window. Run them with <code>ctest --test-dir build --output-on-failure</code>.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Program</th><th class="num">Tests</th><th>What it proves</th></tr></thead>
+      <tbody>
+        <tr><td><code>world_test</code></td><td class="num">14</td><td>Collision, coyote time, jump buffer, coins, the jump height at two step sizes, tunneling at a big step, interpolation, teleports and the world hash.</td></tr>
+        <tr><td><code>clock_test</code></td><td class="num">7</td><td>60 ticks per second at any frame rate, leftover time, the tick cap, dropped time after a hitch and alpha.</td></tr>
+        <tr><td><code>input_test</code></td><td class="num">3</td><td>Each press reaches exactly one tick.</td></tr>
+        <tr><td><code>replay_test</code></td><td class="num">4</td><td>Replays match, the seed matters, fixed ticks ignore the frame rate, and a variable timestep does not.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="controls">
+  <h2>Controls</h2>
+  <div class="card">
+    <div class="keys">
+      <span class="k"><kbd>←</kbd> <kbd>→</kbd></span><span>Run.</span>
+      <span class="k"><kbd>Space</kbd> <kbd>↑</kbd></span><span>Jump.</span>
+      <span class="k"><kbd>M</kbd></span><span>Change to the next loop mode.</span>
+      <span class="k"><kbd>1</kbd>–<kbd>5</kbd></span><span>Cap the frame rate at 15, 30, 60 or 144 FPS, or remove the cap.</span>
+      <span class="k"><kbd>H</kbd></span><span>Freeze the program for 250 ms one time.</span>
+      <span class="k"><kbd>J</kbd></span><span>Random short freezes on or off.</span>
+      <span class="k"><kbd>K</kbd></span><span>Make each tick take 25 ms of real time.</span>
+      <span class="k"><kbd>S</kbd></span><span>Slow motion on or off.</span>
+      <span class="k"><kbd>F</kbd></span><span>Hold for fast forward.</span>
+      <span class="k"><kbd>G</kbd></span><span>Show the player at the last two ticks.</span>
+      <span class="k"><kbd>P</kbd> / <kbd>N</kbd></span><span>Pause. While paused, run one tick.</span>
+      <span class="k"><kbd>R</kbd></span><span>Record. Push again to play back. Push during playback to stop it.</span>
+      <span class="k"><kbd>Esc</kbd></span><span>Close the game.</span>
+    </div>
+  </div>
+</section>
+
+<section id="notes">
+  <h2>Notes on the build</h2>
+  <ul class="readlist">
+    <li><b>History rewrites.</b> No commit was pushed, so two changes went into every commit instead of a new commit at the end. A clangd cache folder (<code>.cache/</code>) had gone into the first commits by mistake. It is now gone and in <code>.gitignore</code>. Scoped enum values have no <code>k</code> prefix (<code>LoopMode::Variable</code>), because the enum name already scopes them. Plain constants keep the prefix (<code>kTickSeconds</code>).</li>
+    <li><b>Verification.</b> Every commit was built from a clean checkout, and the tests ran at every commit after the first test commit. The game window was checked with screenshots. The keyboard controls were not played by hand.</li>
+    <li><b>Local build.</b> CMake fetches raylib 5.5 from GitHub. For an offline build, point <code>FETCHCONTENT_SOURCE_DIR_RAYLIB</code> at a copy that is already on disk.</li>
+    <li><b>CI.</b> The GitHub Actions workflow builds and runs the tests on Linux for pushes to <code>main</code>. The repository is <a href="https://github.com/gordysc/ticker">github.com/gordysc/ticker</a>.</li>
+  </ul>
+</section>
+
+<footer>
+  Ticker · C++20 and raylib 5.5 · Further reading: Glenn Fiedler, "Fix Your Timestep!"; Robert Nystrom, <i>Game Programming Patterns</i>, chapter "Game Loop".
+</footer>
+
+</main>
+</div>
+</body>
+</html>

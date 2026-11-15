@@ -5,7 +5,9 @@ Ticker is a small 2D platformer in C++20 with
 
 The game is also an introduction to the game loop and the fixed timestep.
 The git history builds the loop in stages. Read
-[docs/game-loop.md](docs/game-loop.md) for the guide.
+[docs/game-loop.md](docs/game-loop.md) for the guide. Open
+[docs/guide.html](docs/guide.html) in a browser for an illustrated version
+with diagrams, the full commit list and a map of the files.
 
 ## Build in CLion
 1. Open this folder in CLion.

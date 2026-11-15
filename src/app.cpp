@@ -2,13 +2,20 @@
 
 #include <raylib.h>
 
+#include <random>
+
 #include "input.h"
 #include "render.h"
 
 namespace ticker {
 
+// std::random_device asks the operating system for an unpredictable
+// number. It only picks the seed. After that, the world's own generator
+// makes every random choice, so a known seed gives a known game.
 App::App()
-    : level_(kLevelMap), world_(MakeWorld(level_)), last_frame_start_(GetTime()) {}
+    : level_(kLevelMap),
+      world_(MakeWorld(level_, std::random_device{}())),
+      last_frame_start_(GetTime()) {}
 
 void App::Frame() {
   // Measure how long the last frame took: the time from the start of the
@@ -31,7 +38,7 @@ void App::Frame() {
 void App::Draw() const {
   ClearBackground(Color{24, 26, 34, 255});
   DrawLevel(level_);
-  DrawWorld(world_);
+  DrawWorld(world_, level_);
 }
 
 }  // namespace ticker

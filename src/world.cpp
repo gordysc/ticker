@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 
 #include "tuning.h"
 
@@ -110,8 +111,8 @@ void MoveY(Player& player, const Level& level, float dy) {
     for (int column = tiles.first_column; column <= tiles.last_column;
          ++column) {
       if (level.IsSolid(column, row)) {
-        player.position.y = dy > 0 ? row * kTileSize - kPlayerHeight
-                                   : (row + 1) * kTileSize;
+        player.position.y =
+            dy > 0 ? row * kTileSize - kPlayerHeight : (row + 1) * kTileSize;
         player.velocity.y = 0;
         return;
       }
@@ -128,11 +129,31 @@ void Respawn(World& world, const Level& level) {
   world.player.position = {start.x - kPlayerWidth / 2, start.y - kPlayerHeight};
 }
 
+/// @brief Moves the coin to a random spawn point other than its current one.
+/// @param world The world.
+/// @param level The level.
+void MoveCoin(World& world, const Level& level) {
+  const int count = static_cast<int>(level.coin_spawns().size());
+  if (count < 2) {
+    return;
+  }
+  // Pick from the other count - 1 places: draw a number below count - 1,
+  // then skip over the current place. Every other place is equally likely,
+  // and there is no "draw again until it is different" loop.
+  int next = world.random.Below(count - 1);
+  if (next >= world.coin) {
+    ++next;
+  }
+  world.coin = next;
+}
+
 }  // namespace
 
-World MakeWorld(const Level& level) {
+World MakeWorld(const Level& level, std::uint32_t seed) {
   World world;
+  world.random = Random(seed);
   Respawn(world, level);
+  MoveCoin(world, level);
   return world;
 }
 
@@ -167,7 +188,8 @@ void Step(World& world, const Level& level, const Input& input, float dt) {
   // "Semi-implicit Euler" integration: change the velocity first, then
   // move by the new velocity. It is simple and stable, but it is only an
   // estimate of real motion, and the size of the error depends on dt.
-  player.velocity.y = std::min(player.velocity.y + kGravity * dt, kMaxFallSpeed);
+  player.velocity.y =
+      std::min(player.velocity.y + kGravity * dt, kMaxFallSpeed);
 
   MoveX(player, level, player.velocity.x * dt);
   MoveY(player, level, player.velocity.y * dt);
@@ -178,6 +200,11 @@ void Step(World& world, const Level& level, const Input& input, float dt) {
   Rectangle below = PlayerBox(player);
   below.y += 0.5f;
   player.on_ground = player.velocity.y >= 0 && OverlapsSolid(level, below);
+
+  if (CheckCollisionRecs(PlayerBox(player), CoinBox(world, level))) {
+    ++world.score;
+    MoveCoin(world, level);
+  }
 
   // A player who tunnels through the outer wall falls out of the level.
   const Vector2 size = level.size();
@@ -191,6 +218,19 @@ void Step(World& world, const Level& level, const Input& input, float dt) {
 
 Rectangle PlayerBox(const Player& player) {
   return {player.position.x, player.position.y, kPlayerWidth, kPlayerHeight};
+}
+
+Rectangle CoinBox(const World& world, const Level& level) {
+  if (level.coin_spawns().empty()) {
+    // An empty box far away: nothing can touch it.
+    return {-1000, -1000, 0, 0};
+  }
+  // .at() checks the index and throws std::out_of_range if it is bad.
+  // operator[] does no check, and a bad index is undefined behavior.
+  const Vector2 center =
+      level.coin_spawns().at(static_cast<std::size_t>(world.coin));
+  return {center.x - kCoinSize / 2, center.y - kCoinSize / 2, kCoinSize,
+          kCoinSize};
 }
 
 }  // namespace ticker

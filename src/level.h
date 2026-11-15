@@ -91,9 +91,7 @@ class Level {
 
   /// @brief The level size in pixels.
   /// @return Width and height.
-  Vector2 size() const {
-    return {columns_ * kTileSize, rows_ * kTileSize};
-  }
+  Vector2 size() const { return {columns_ * kTileSize, rows_ * kTileSize}; }
 
   /// @brief Where the player starts.
   /// @return The middle of the bottom edge of the `P` tile, in pixels. The

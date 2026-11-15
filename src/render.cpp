@@ -2,6 +2,8 @@
 
 #include <raylib.h>
 
+#include "screen.h"
+
 namespace ticker {
 
 namespace {
@@ -15,6 +17,8 @@ constexpr Color kTileColor{70, 78, 104, 255};
 constexpr Color kTileEdgeColor{110, 122, 160, 255};
 /// @brief Color of the player.
 constexpr Color kPlayerColor{255, 196, 87, 255};
+/// @brief Color of the coin.
+constexpr Color kCoinColor{120, 220, 160, 255};
 
 }  // namespace
 
@@ -37,8 +41,17 @@ void DrawLevel(const Level& level) {
   }
 }
 
-void DrawWorld(const World& world) {
+void DrawWorld(const World& world, const Level& level) {
+  const Rectangle coin = CoinBox(world, level);
+  DrawCircleV({coin.x + coin.width / 2, coin.y + coin.height / 2},
+              coin.width / 2, kCoinColor);
   DrawRectangleRec(PlayerBox(world.player), kPlayerColor);
+
+  // TextFormat() works like printf() and returns a pointer into a buffer
+  // inside raylib. The next TextFormat() call can reuse that buffer, so use
+  // the text at once and never keep the pointer.
+  const char* score = TextFormat("Coins: %d", world.score);
+  DrawText(score, kScreenWidth - 48 - MeasureText(score, 20), 40, 20, RAYWHITE);
 }
 
 }  // namespace ticker

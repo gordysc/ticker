@@ -17,9 +17,10 @@ namespace ticker {
 /// @param level The level to draw.
 void DrawLevel(const Level& level);
 
-/// @brief Draws everything in the world that moves.
+/// @brief Draws the player, the coin and the score.
 /// @param world The world to draw.
-void DrawWorld(const World& world);
+/// @param level The level, which holds the coin spawn points.
+void DrawWorld(const World& world, const Level& level);
 
 }  // namespace ticker
 

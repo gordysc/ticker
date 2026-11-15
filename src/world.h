@@ -5,8 +5,11 @@
 
 #include <raylib.h>
 
+#include <cstdint>
+
 #include "input.h"
 #include "level.h"
+#include "random.h"
 
 /// @brief Everything that belongs to the game.
 namespace ticker {
@@ -34,12 +37,23 @@ struct World {
   Player player;
   /// @brief How many times the player has left the level and respawned.
   int falls = 0;
+  /// @brief Which coin spawn point holds the coin: an index into
+  /// Level::coin_spawns(). There is always exactly one coin.
+  int coin = 0;
+  /// @brief Number of coins collected.
+  int score = 0;
+  /// @brief Picks where the next coin appears.
+  ///
+  /// The generator is part of the world, not a global. Its state changes
+  /// only inside Step(), so the same inputs always give the same coins.
+  Random random{1};
 };
 
 /// @brief Makes the world as it is when the game starts.
 /// @param level The level to start in.
+/// @param seed Seed for the world's random number generator.
 /// @return A world with the player at the level's start point.
-World MakeWorld(const Level& level);
+World MakeWorld(const Level& level, std::uint32_t seed);
 
 /// @brief Advances the simulation by `dt` seconds.
 ///
@@ -58,6 +72,12 @@ void Step(World& world, const Level& level, const Input& input, float dt);
 /// @param player The player.
 /// @return The box in pixels.
 Rectangle PlayerBox(const Player& player);
+
+/// @brief The collision box of the coin.
+/// @param world The world.
+/// @param level The level, which holds the coin spawn points.
+/// @return The box in pixels.
+Rectangle CoinBox(const World& world, const Level& level);
 
 }  // namespace ticker
 

@@ -43,6 +43,7 @@ add_library(ticker_core STATIC
     src/app.cpp
     src/input.cpp
     src/level.cpp
+    src/random.cpp
     src/render.cpp
     src/world.cpp
 )

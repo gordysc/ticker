@@ -40,6 +40,9 @@ inline constexpr float kCoyoteTime = 0.1f;
 /// touch the ground happens at the moment they do.
 inline constexpr float kJumpBufferTime = 0.1f;
 
+/// @brief Width and height of a coin's collision box.
+inline constexpr float kCoinSize = 16.0f;
+
 /// @brief How far outside the level the player can go before a respawn.
 inline constexpr float kOutOfLevelMargin = 64.0f;
 

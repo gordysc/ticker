@@ -13,6 +13,8 @@ namespace {
 constexpr Color kTileColor{70, 78, 104, 255};
 /// @brief Color of the lighter top edge of a solid tile.
 constexpr Color kTileEdgeColor{110, 122, 160, 255};
+/// @brief Color of the player.
+constexpr Color kPlayerColor{255, 196, 87, 255};
 
 }  // namespace
 
@@ -33,6 +35,10 @@ void DrawLevel(const Level& level) {
       }
     }
   }
+}
+
+void DrawWorld(const World& world) {
+  DrawRectangleRec(PlayerBox(world.player), kPlayerColor);
 }
 
 }  // namespace ticker

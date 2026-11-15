@@ -4,6 +4,7 @@
 // Header guard; see screen.h for how it works.
 
 #include "level.h"
+#include "world.h"
 
 /// @brief Everything that belongs to the game.
 namespace ticker {
@@ -15,6 +16,10 @@ namespace ticker {
 ///
 /// @param level The level to draw.
 void DrawLevel(const Level& level);
+
+/// @brief Draws everything in the world that moves.
+/// @param world The world to draw.
+void DrawWorld(const World& world);
 
 }  // namespace ticker
 

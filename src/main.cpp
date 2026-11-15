@@ -1,7 +1,6 @@
 #include <raylib.h>
 
-#include "level.h"
-#include "render.h"
+#include "app.h"
 #include "screen.h"
 
 /// @brief Opens the game window and runs the game loop until it is closed.
@@ -10,12 +9,14 @@ int main() {
   InitWindow(ticker::kScreenWidth, ticker::kScreenHeight, "Ticker");
   SetTargetFPS(60);
 
-  const ticker::Level level(ticker::kLevelMap);
-  while (!WindowShouldClose()) {
-    BeginDrawing();
-    ClearBackground(Color{24, 26, 34, 255});
-    ticker::DrawLevel(level);
-    EndDrawing();
+  // The extra `{ }` block makes `app` go out of scope, and its destructor
+  // run, before CloseWindow(). Anything the App owns that needs the window
+  // (textures, fonts) is then freed while the window still exists.
+  {
+    ticker::App app;
+    while (!WindowShouldClose()) {
+      app.Frame();
+    }
   }
 
   CloseWindow();

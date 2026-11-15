@@ -40,8 +40,11 @@ target_compile_options(raylib PRIVATE -w)
 # each one is compiled on its own, and headers are compiled as part of every
 # .cpp file that includes them.
 add_library(ticker_core STATIC
+    src/app.cpp
+    src/input.cpp
     src/level.cpp
     src/render.cpp
+    src/world.cpp
 )
 
 # PUBLIC on an include folder means "use it to build this target, and also

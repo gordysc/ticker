@@ -4,10 +4,12 @@
 // Header guard; see screen.h for how it works.
 
 #include <array>
+#include <cstddef>
 
 #include "clock.h"
 #include "level.h"
 #include "random.h"
+#include "replay.h"
 #include "tuning.h"
 #include "world.h"
 
@@ -91,6 +93,15 @@ class App {
   /// @return 1 for real speed, less than 1 for slow motion.
   double TimeScale() const;
 
+  /// @brief Starts a new world and records every step from now on.
+  void StartRecording();
+
+  /// @brief Ends the recording and plays it back from the start.
+  void StartPlayback();
+
+  /// @brief Compares the end of the playback with the recording.
+  void FinishPlayback();
+
   /// @brief Updates game_speed_ from the time that passed this frame.
   /// @param real_seconds Real time that passed.
   /// @param game_seconds Game time that passed.
@@ -129,6 +140,18 @@ class App {
   LoopMode mode_ = LoopMode::Interpolated;
   /// @brief Turns frame times into ticks in LoopMode::Accumulator.
   FixedStepClock clock_{kTickSeconds, kMaxTicksPerFrame};
+  /// @brief What the replay system is doing.
+  ReplayState replay_state_ = ReplayState::Off;
+  /// @brief The recording, or the one that plays.
+  Replay replay_;
+  /// @brief During playback: the index of the next input to use.
+  ///
+  /// std::size_t is the unsigned type that vector sizes and indexes use.
+  /// Comparing it with a signed int makes -Wall warn, because a negative
+  /// int turns into a huge unsigned number.
+  std::size_t playback_index_ = 0;
+  /// @brief How the last playback ended.
+  ReplayResult replay_result_ = ReplayResult::None;
   /// @brief Keeps each frame's input until a step takes it.
   InputLatch input_latch_;
   /// @brief How many times Step() ran in the last frame.

@@ -5,6 +5,8 @@
 
 #include <span>
 
+#include "replay.h"
+
 /// @brief Everything that belongs to the game.
 namespace ticker {
 
@@ -43,6 +45,14 @@ struct HudInfo {
   float jump_height = 0;
   /// @brief How many times the player has fallen out of the level.
   int falls = 0;
+  /// @brief What the replay system is doing.
+  ReplayState replay_state = ReplayState::Off;
+  /// @brief How the last playback ended.
+  ReplayResult replay_result = ReplayResult::None;
+  /// @brief Number of steps in the replay.
+  int replay_ticks = 0;
+  /// @brief During playback: how many steps have played.
+  int replay_position = 0;
   /// @brief Recent frame lengths in milliseconds, oldest first.
   ///
   /// A span does not own the numbers. It points at the App's own array, so

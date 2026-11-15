@@ -46,6 +46,7 @@ add_library(ticker_core STATIC
     src/input.cpp
     src/level.cpp
     src/random.cpp
+    src/replay.cpp
     src/render.cpp
     src/world.cpp
 )
@@ -102,3 +103,8 @@ add_executable(input_test tests/input_test.cpp)
 target_link_libraries(input_test PRIVATE ticker_core)
 target_compile_options(input_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME input_test COMMAND input_test)
+
+add_executable(replay_test tests/replay_test.cpp)
+target_link_libraries(replay_test PRIVATE ticker_core)
+target_compile_options(replay_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME replay_test COMMAND replay_test)

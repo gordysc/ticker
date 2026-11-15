@@ -130,10 +130,28 @@ double App::Update(double frame_seconds) {
 }
 
 void App::RunStep(float dt) {
+  // Always take from the latch, even during playback, so a key pressed
+  // during playback does not wait there and fire later.
+  Input input = input_latch_.TakeForTick();
+  if (replay_state_ == ReplayState::Playing) {
+    input = replay_.inputs[playback_index_];
+    ++playback_index_;
+  }
+
   // Keep the world as it was before this step. After the last step of a
   // frame, previous_world_ and world_ are the two ticks to draw between.
   previous_world_ = world_;
-  Step(world_, level_, input_latch_.TakeForTick(), dt);
+  Step(world_, level_, input, dt);
+
+  // Record the input the step really used: the latched one, with the
+  // press on exactly one tick. The keyboard state of the frame would not
+  // replay correctly.
+  if (replay_state_ == ReplayState::Recording) {
+    replay_.inputs.push_back(input);
+  } else if (replay_state_ == ReplayState::Playing &&
+             playback_index_ == replay_.inputs.size()) {
+    FinishPlayback();
+  }
   if (slow_ticks_) {
     // Copies a heavy simulation: many enemies, complex physics or a slow
     // computer. One tick now takes longer in real time (25 ms) than the
@@ -142,6 +160,42 @@ void App::RunStep(float dt) {
     // which makes it take longer still. This is the "spiral of death".
     WaitTime(kSlowTickSeconds);
   }
+}
+
+void App::StartRecording() {
+  replay_ = Replay{};
+  replay_.seed = std::random_device{}();
+  // A recording starts from a known state: a new world from the seed.
+  world_ = MakeWorld(level_, replay_.seed);
+  previous_world_ = world_;
+  // Old presses and old time belong to the game before the recording.
+  input_latch_ = InputLatch{};
+  clock_.Reset();
+  replay_state_ = ReplayState::Recording;
+}
+
+void App::StartPlayback() {
+  if (replay_.inputs.empty()) {
+    replay_state_ = ReplayState::Off;
+    return;
+  }
+  replay_.final_hash = HashWorld(world_);
+  // Back to the same start as the recording. Only the seed and the inputs
+  // carry over: nothing else from the recorded game is used.
+  world_ = MakeWorld(level_, replay_.seed);
+  previous_world_ = world_;
+  input_latch_ = InputLatch{};
+  clock_.Reset();
+  playback_index_ = 0;
+  replay_state_ = ReplayState::Playing;
+}
+
+void App::FinishPlayback() {
+  replay_result_ = HashWorld(world_) == replay_.final_hash
+                       ? ReplayResult::Matched
+                       : ReplayResult::Desynced;
+  // Play goes on from here, live, with the keyboard.
+  replay_state_ = ReplayState::Off;
 }
 
 double App::TimeScale() const { return slow_motion_ ? kSlowMotionScale : 1.0; }
@@ -184,6 +238,20 @@ void App::HandleFrameKeys() {
   }
   if (IsKeyPressed(KEY_G)) {
     show_ghosts_ = !show_ghosts_;
+  }
+  if (IsKeyPressed(KEY_R)) {
+    switch (replay_state_) {
+      case ReplayState::Off:
+        StartRecording();
+        break;
+      case ReplayState::Recording:
+        StartPlayback();
+        break;
+      case ReplayState::Playing:
+        // Stop the playback early and play on live.
+        replay_state_ = ReplayState::Off;
+        break;
+    }
   }
   if (IsKeyPressed(KEY_M)) {
     mode_ = NextLoopMode(mode_);
@@ -235,6 +303,10 @@ void App::Draw() const {
   hud.alpha = mode_ == LoopMode::Interpolated
                   ? static_cast<float>(clock_.Alpha())
                   : 1.0f;
+  hud.replay_state = replay_state_;
+  hud.replay_result = replay_result_;
+  hud.replay_ticks = static_cast<int>(replay_.inputs.size());
+  hud.replay_position = static_cast<int>(playback_index_);
   hud.dropped_ms = static_cast<float>(clock_.dropped_seconds() * 1000);
   hud.jump_height = world_.jump.last_height;
   hud.falls = world_.falls;

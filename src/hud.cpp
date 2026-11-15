@@ -90,6 +90,41 @@ void DrawFrameGraph(std::span<const float> history, int x, int y, int width) {
   DrawLine(x, line_y, x + width, line_y, Color{255, 255, 255, 90});
 }
 
+/// @brief Adds the replay status line, and a banner over the level while a
+/// replay records or plays.
+/// @param lines Where the sidebar text goes.
+/// @param info What to show.
+void DrawReplayLine(TextLines& lines, const HudInfo& info) {
+  constexpr Color kRed{240, 90, 90, 255};
+  constexpr Color kGreen{120, 220, 160, 255};
+  switch (info.replay_state) {
+    case ReplayState::Recording:
+      lines.Add(TextFormat("replay: recording, %d ticks", info.replay_ticks),
+                kRed);
+      DrawText("REC", 48, 40, 30, kRed);
+      return;
+    case ReplayState::Playing:
+      lines.Add(TextFormat("replay: playing, %d / %d ticks",
+                           info.replay_position, info.replay_ticks),
+                kGreen);
+      DrawText("REPLAY", 48, 40, 30, kGreen);
+      return;
+    case ReplayState::Off:
+      break;
+  }
+  switch (info.replay_result) {
+    case ReplayResult::None:
+      lines.Add("replay: off");
+      break;
+    case ReplayResult::Matched:
+      lines.Add("last replay: MATCH", kGreen);
+      break;
+    case ReplayResult::Desynced:
+      lines.Add("last replay: DESYNC", kRed);
+      break;
+  }
+}
+
 }  // namespace
 
 void DrawHud(const HudInfo& info) {
@@ -126,6 +161,7 @@ void DrawHud(const HudInfo& info) {
             info.jump_height >= 96.0f ? Color{120, 220, 160, 255}
                                       : Color{240, 170, 90, 255});
   lines.Add(TextFormat("falls out of the level: %d", info.falls));
+  DrawReplayLine(lines, info);
 
   DrawFrameGraph(info.frame_history_ms, kPanelX + kPadding,
                  lines.y() + kPadding / 2, kPanelWidth - kPadding * 2);
@@ -133,7 +169,7 @@ void DrawHud(const HudInfo& info) {
   // The key list sits at the bottom of the sidebar. A `constexpr` array of
   // `const char*` is built at compile time, and .size() is known there too.
   constexpr Color kDim{150, 156, 175, 255};
-  constexpr std::array<const char*, 8> kKeys = {
+  constexpr std::array<const char*, 9> kKeys = {
       "Left / Right: run      Space / Up: jump",
       "M: next loop mode",
       "1-5: frame rate cap",
@@ -142,6 +178,7 @@ void DrawHud(const HudInfo& info) {
       "K: slow ticks on / off",
       "S: slow motion on / off",
       "G: show the last two ticks",
+      "R: record, then play back",
   };
   TextLines keys(
       kPanelX + kPadding,

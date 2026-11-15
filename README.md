@@ -40,3 +40,5 @@ The tests do not open a window.
 - K: make each tick take 25 ms of real time, or go back to normal.
 - S: turn slow motion (0.1 times real speed) on or off.
 - G: show or hide outlines of the player at the last two ticks.
+- R: start a recording. Push R again to stop it and play it back. Push R
+  during the playback to stop it.

@@ -14,6 +14,7 @@ The git history builds the game loop in stages. Each stage has a tag.
 | `stage-3-accumulator` | An accumulator turns real time into a whole number of ticks per frame. |
 | `stage-4-interpolation` | The player is drawn between the last two ticks. |
 | `stage-5-replays` | Replays record the input of each tick and play it back exactly. |
+| `stage-6-time-controls` | Pause, one tick at a time, slow motion and fast forward. |
 
 To see a stage, check out its tag:
 ```bash
@@ -390,3 +391,79 @@ compares the hash of the world with the recorded hash. The sidebar shows
 - `tests/replay_test.cpp`. `TestFixedTicksIgnoreFrameRate()` runs the same
   inputs at 15, 60 and 144 FPS and gets the same hash.
   `TestVariableTimestepDependsOnFrameRate()` shows the opposite.
+
+## Stage 6: time controls
+
+Time controls change how fast game time runs: pause, one tick at a time,
+slow motion and fast forward. With a fixed tick, all of them follow one
+rule:
+
+> Scale the time that goes into the accumulator. Never scale `dt`.
+
+`App::Frame()` multiplies the real frame time by `App::TimeScale()` before
+the loop sees it. Slow motion (S) gives 0.1, so the clock pays for one
+tick in ten. Fast forward (hold F) gives 4, so the clock pays for four
+ticks each frame at 60 FPS. Every tick still has `dt = kTickSeconds`, so
+the physics does not change, and replays still match.
+
+The variable timestep mode can only scale `dt`. That changes the physics:
+the jump is higher in slow motion and lower in fast forward.
+
+### Pause and one tick at a time
+
+While the game is paused (P), `App::Update()` returns at once. No time goes
+into the accumulator. If the paused time went in, the first frame after the
+pause would owe a large number of ticks and run them all together. The
+tick cap would then drop most of that time, but the player would still see
+a jump forward.
+
+While paused, N runs exactly one tick. Keys pressed while paused wait in
+the `InputLatch`. Push Space, then N, to see the first tick of a jump. This
+is a good tool to find bugs that last for one tick.
+
+### Fast forward and the tick cap
+
+At 60 FPS, fast forward needs 4 ticks each frame. At 15 FPS it needs 16
+ticks each frame, which is more than `kMaxTicksPerFrame`. The clock runs 8
+ticks and drops the rest of the time, so the game runs at about x2, not x4.
+The sidebar shows the game speed and the dropped time. A game cannot run
+faster than its computer can simulate.
+
+### Try it
+
+1. Push P. The game stops, and the sidebar shows "paused".
+2. Push Space, then push N a few times. The player jumps one tick at a
+   time. Push G to show the last two ticks.
+3. Push P to continue. The game continues at once, with no jump forward.
+4. Hold F. The game speed goes to x4.
+5. Push 1 to set 15 FPS and hold F again. The game speed is lower than x4,
+   and the time dropped goes up.
+6. Record a replay (R) with some slow motion and fast forward in it. The
+   playback matches.
+
+### Code to read
+
+- `App::TimeScale()` and `App::Update()` in `src/app.cpp`.
+- `App::HandleFrameKeys()` in `src/app.cpp`: the P, N, S and F keys.
+
+## Summary
+
+| Loop | Physics same at all frame rates | Real speed | Smooth drawing | Replays |
+|---|---|---|---|---|
+| 1. Variable timestep | No | Yes | Yes | No |
+| 2. Fixed step per frame | Yes | No | Yes | Yes |
+| 3. Accumulator | Yes | Yes | No (judder) | Yes |
+| 4. Accumulator and interpolation | Yes | Yes | Yes | Yes |
+
+The final loop in `App::Frame()` does these things in order:
+1. Measure the real time since the last frame.
+2. Multiply it by the time scale.
+3. Add it to the accumulator, and take out whole ticks, up to the cap.
+4. Run one `Step()` with a fixed `dt` for each tick, with input from the
+   latch.
+5. Draw the world between the last two ticks, by alpha.
+
+## Further reading
+
+- Glenn Fiedler, "Fix Your Timestep!", gafferongames.com.
+- Robert Nystrom, "Game Programming Patterns", chapter "Game Loop".

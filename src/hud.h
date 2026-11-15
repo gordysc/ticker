@@ -32,6 +32,8 @@ struct HudInfo {
   int steps_this_frame = 0;
   /// @brief Time waiting in the accumulator, in milliseconds.
   float accumulator_ms = 0;
+  /// @brief The interpolation fraction. 1 if interpolation is off.
+  float alpha = 1;
   /// @brief All the time the clock has thrown away, in milliseconds.
   float dropped_ms = 0;
   /// @brief Height of the last jump, in pixels.

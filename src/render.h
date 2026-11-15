@@ -20,7 +20,10 @@ void DrawLevel(const Level& level);
 /// @brief Draws the player, the coin and the score.
 /// @param world The world to draw.
 /// @param level The level, which holds the coin spawn points.
-void DrawWorld(const World& world, const Level& level);
+/// @param player_position Where to draw the player (top-left corner). This
+///        is not always world.player.position: with interpolation, the
+///        player is drawn between two ticks.
+void DrawWorld(const World& world, const Level& level, Vector2 player_position);
 
 }  // namespace ticker
 

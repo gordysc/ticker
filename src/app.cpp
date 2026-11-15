@@ -28,6 +28,8 @@ const char* LoopModeName(LoopMode mode) {
       return "2. fixed step per frame";
     case LoopMode::Accumulator:
       return "3. accumulator";
+    case LoopMode::Interpolated:
+      return "4. accumulator + interpolation";
   }
   return "?";
 }
@@ -42,6 +44,8 @@ LoopMode NextLoopMode(LoopMode mode) {
     case LoopMode::FixedPerFrame:
       return LoopMode::Accumulator;
     case LoopMode::Accumulator:
+      return LoopMode::Interpolated;
+    case LoopMode::Interpolated:
       return LoopMode::Variable;
   }
   return LoopMode::Variable;
@@ -55,6 +59,7 @@ LoopMode NextLoopMode(LoopMode mode) {
 App::App()
     : level_(kLevelMap),
       world_(MakeWorld(level_, std::random_device{}())),
+      previous_world_(world_),
       last_frame_start_(GetTime()) {}
 
 void App::Frame() {
@@ -101,7 +106,10 @@ double App::Update(double frame_seconds) {
       RunStep(kTickSeconds);
       steps_this_frame_ = 1;
       return kTickSeconds;
-    case LoopMode::Accumulator: {
+    // Two `case` labels in a row share one body. Interpolation changes only
+    // the drawing, so the update is the same as in the accumulator mode.
+    case LoopMode::Accumulator:
+    case LoopMode::Interpolated: {
       // The fixed timestep with an accumulator. The clock says how many
       // whole ticks the real time has paid for: often 1, sometimes 0 on a
       // fast frame, several on a slow one. Every tick has the same dt, and
@@ -118,6 +126,9 @@ double App::Update(double frame_seconds) {
 }
 
 void App::RunStep(float dt) {
+  // Keep the world as it was before this step. After the last step of a
+  // frame, previous_world_ and world_ are the two ticks to draw between.
+  previous_world_ = world_;
   Step(world_, level_, input_latch_.TakeForTick(), dt);
   if (slow_ticks_) {
     // Copies a heavy simulation: many enemies, complex physics or a slow
@@ -188,7 +199,7 @@ void App::Stall() {
 void App::Draw() const {
   ClearBackground(Color{24, 26, 34, 255});
   DrawLevel(level_);
-  DrawWorld(world_, level_);
+  DrawWorld(world_, level_, DrawnPlayerPosition());
 
   HudInfo hud;
   hud.fps = GetFPS();
@@ -200,11 +211,31 @@ void App::Draw() const {
   hud.game_speed = game_speed_;
   hud.steps_this_frame = steps_this_frame_;
   hud.accumulator_ms = static_cast<float>(clock_.accumulator() * 1000);
+  hud.alpha = mode_ == LoopMode::Interpolated
+                  ? static_cast<float>(clock_.Alpha())
+                  : 1.0f;
   hud.dropped_ms = static_cast<float>(clock_.dropped_seconds() * 1000);
   hud.jump_height = world_.jump.last_height;
   hud.falls = world_.falls;
   hud.frame_history_ms = frame_history_ms_;
   DrawHud(hud);
+}
+
+Vector2 App::DrawnPlayerPosition() const {
+  if (mode_ != LoopMode::Interpolated) {
+    // Without interpolation, draw the world as the last tick left it. On a
+    // frame with no tick, the player is drawn at the same place as on the
+    // frame before, and on a frame with 2 ticks it moves twice as far. At
+    // frame rates that are not a whole multiple of 60, the motion looks
+    // uneven ("judder").
+    return world_.player.position;
+  }
+  // The last tick is up to one tick behind real time. Draw the player
+  // part of the way from the tick before it, by the fraction of a tick
+  // that real time is ahead. The drawing is then up to one tick (16.7 ms)
+  // late, but it moves smoothly at any frame rate.
+  return LerpPlayerPosition(previous_world_, world_,
+                            static_cast<float>(clock_.Alpha()));
 }
 
 }  // namespace ticker

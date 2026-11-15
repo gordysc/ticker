@@ -114,6 +114,7 @@ void DrawHud(const HudInfo& info) {
             speed_off ? Color{240, 90, 90, 255} : RAYWHITE);
   lines.Add(TextFormat("steps this frame %d   accumulator %.1f ms",
                        info.steps_this_frame, info.accumulator_ms));
+  lines.Add(TextFormat("alpha %.2f", info.alpha));
   lines.Add(TextFormat("time dropped %.0f ms", info.dropped_ms),
             info.dropped_ms > 0 ? Color{240, 170, 90, 255} : RAYWHITE);
   // The 3-tile block in the corner is 96 px tall.

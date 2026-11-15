@@ -3,6 +3,7 @@
 #include <raylib.h>
 
 #include "screen.h"
+#include "tuning.h"
 
 namespace ticker {
 
@@ -41,11 +42,12 @@ void DrawLevel(const Level& level) {
   }
 }
 
-void DrawWorld(const World& world, const Level& level) {
+void DrawWorld(const World& world, const Level& level,
+               Vector2 player_position) {
   const Rectangle coin = CoinBox(world, level);
   DrawCircleV({coin.x + coin.width / 2, coin.y + coin.height / 2},
               coin.width / 2, kCoinColor);
-  DrawRectangleRec(PlayerBox(world.player), kPlayerColor);
+  DrawRectangleV(player_position, {kPlayerWidth, kPlayerHeight}, kPlayerColor);
 
   // TextFormat() works like printf() and returns a pointer into a buffer
   // inside raylib. The next TextFormat() call can reuse that buffer, so use

@@ -228,6 +228,30 @@ void TestCoinMovesWhenCollected() {
   CHECK(world.coin != first);
 }
 
+/// @brief The drawn position goes in a straight line between two ticks.
+void TestLerpPlayerPosition() {
+  const Level level(kLevelMap);
+  World previous = MakeWorld(level, 1);
+  World current = previous;
+  current.player.position.x += 10;
+  const Vector2 half = LerpPlayerPosition(previous, current, 0.5f);
+  CHECK(Near(half.x, previous.player.position.x + 5));
+  CHECK(Near(half.y, previous.player.position.y));
+}
+
+/// @brief A respawn is drawn at the new place at once, not in between.
+void TestLerpSkipsRespawn() {
+  const Level level(kLevelMap);
+  World previous = MakeWorld(level, 1);
+  previous.player.position = {500, 900};  // Far below the level.
+  World current = previous;
+  Step(current, level, Input{}, kFrame60);
+  CHECK(current.falls == 1);
+  const Vector2 drawn = LerpPlayerPosition(previous, current, 0.5f);
+  CHECK(Near(drawn.x, current.player.position.x));
+  CHECK(Near(drawn.y, current.player.position.y));
+}
+
 /// @brief The generator gives the same numbers for the same seed.
 void TestRandomRepeats() {
   Random a(42);
@@ -265,6 +289,8 @@ int main() {
       {"coyote time", TestCoyoteTime},
       {"jump buffer", TestJumpBuffer},
       {"coin moves when collected", TestCoinMovesWhenCollected},
+      {"lerp player position", TestLerpPlayerPosition},
+      {"lerp skips respawn", TestLerpSkipsRespawn},
       {"random repeats", TestRandomRepeats},
   };
   return testing::RunTests(tests);

@@ -87,6 +87,19 @@ void Step(World& world, const Level& level, const Input& input, float dt);
 /// @return The box in pixels.
 Rectangle PlayerBox(const Player& player);
 
+/// @brief Where to draw the player between two ticks.
+///
+/// Mixes the positions of two snapshots of the world in a straight line.
+/// "Lerp" is short for "linear interpolation".
+///
+/// @param previous The world before the last tick.
+/// @param current The world after the last tick.
+/// @param alpha How far to go from previous to current: 0 gives the
+///        previous position, 1 gives the current one.
+/// @return The top-left corner of the player box, in pixels.
+Vector2 LerpPlayerPosition(const World& previous, const World& current,
+                           float alpha);
+
 /// @brief The collision box of the coin.
 /// @param world The world.
 /// @param level The level, which holds the coin spawn points.

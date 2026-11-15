@@ -99,6 +99,13 @@ void TestHitchDropsTimeOnce() {
   CHECK(clock.dropped_seconds() == dropped);
 }
 
+/// @brief Alpha is the leftover time as a fraction of a tick.
+void TestAlpha() {
+  FixedStepClock clock(kTick, kMaxTicks);
+  CHECK(clock.Advance(kTick * 1.25) == 1);
+  CHECK(Near(clock.Alpha(), 0.25));
+}
+
 /// @brief Reset() empties the accumulator.
 void TestReset() {
   FixedStepClock clock(kTick, kMaxTicks);
@@ -121,6 +128,7 @@ int main() {
       {"long frame gives several ticks", TestLongFrameGivesSeveralTicks},
       {"slow ticks stay at the limit", TestSlowTicksStayAtTheLimit},
       {"hitch drops time once", TestHitchDropsTimeOnce},
+      {"alpha", TestAlpha},
       {"reset", TestReset},
   };
   return testing::RunTests(tests);

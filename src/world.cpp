@@ -251,6 +251,20 @@ Rectangle PlayerBox(const Player& player) {
   return {player.position.x, player.position.y, kPlayerWidth, kPlayerHeight};
 }
 
+Vector2 LerpPlayerPosition(const World& previous, const World& current,
+                           float alpha) {
+  // A respawn moves the player across the level in one tick. A smooth line
+  // between the two places would show the player fly across the screen,
+  // so draw the new place at once. Respawns are the only jumps in position
+  // in this game, and each one adds 1 to `falls`.
+  if (previous.falls != current.falls) {
+    return current.player.position;
+  }
+  const Vector2 a = previous.player.position;
+  const Vector2 b = current.player.position;
+  return {a.x + (b.x - a.x) * alpha, a.y + (b.y - a.y) * alpha};
+}
+
 Rectangle CoinBox(const World& world, const Level& level) {
   if (level.coin_spawns().empty()) {
     // An empty box far away: nothing can touch it.

@@ -38,6 +38,9 @@ enum class LoopMode {
   FixedPerFrame,
   /// @brief Stage 3: as many one-tick Step()s as the frame time pays for.
   Accumulator,
+  /// @brief Stage 4: the accumulator, and the player is drawn between the
+  /// last two ticks.
+  Interpolated,
 };
 
 /// @brief The program around the simulation: the game loop, the clock and
@@ -96,6 +99,11 @@ class App {
   /// @brief Draws the world.
   void Draw() const;
 
+  /// @brief Where to draw the player this frame.
+  /// @return world_'s player position, or a point between previous_world_
+  ///         and world_ in LoopMode::Interpolated.
+  Vector2 DrawnPlayerPosition() const;
+
   /// @brief The level. `const`: it never changes after the constructor.
   ///
   /// Members are built in the order they are declared here, not in the
@@ -104,8 +112,15 @@ class App {
   const Level level_;
   /// @brief The simulation state.
   World world_;
+  /// @brief A copy of world_ from before the last tick. Interpolation
+  /// draws the player between this and world_.
+  ///
+  /// A plain copy works because World holds only values. If World held
+  /// pointers, a copy would share the objects they point at, and changes to
+  /// world_ would also show up here.
+  World previous_world_;
   /// @brief How Frame() advances the world.
-  LoopMode mode_ = LoopMode::Accumulator;
+  LoopMode mode_ = LoopMode::Interpolated;
   /// @brief Turns frame times into ticks in LoopMode::Accumulator.
   FixedStepClock clock_{kTickSeconds, kMaxTicksPerFrame};
   /// @brief Keeps each frame's input until a step takes it.

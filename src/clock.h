@@ -48,6 +48,16 @@ class FixedStepClock {
   /// @return Seconds, from 0 up to (but not including) one tick.
   double accumulator() const { return accumulator_; }
 
+  /// @brief How far the real time is between the last tick and the next.
+  ///
+  /// The last tick computed the world at some game time T. Real time is now
+  /// a little past T, by the time in the accumulator. Alpha is that extra
+  /// time as a fraction of a tick: 0 means "exactly at T", 0.5 means "half
+  /// way to the next tick".
+  ///
+  /// @return A value from 0 up to (but not including) 1.
+  double Alpha() const { return accumulator_ / tick_seconds_; }
+
   /// @brief Length of one tick.
   /// @return Seconds.
   double tick_seconds() const { return tick_seconds_; }

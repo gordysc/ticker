@@ -1,0 +1,40 @@
+name: CI
+
+# Runs on pushes to main only. The repo doesn't take outside pull requests,
+# so there is no pull_request trigger (which would also let fork PRs use
+# this repo's Actions minutes). workflow_dispatch allows manual runs.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel an older run on the same branch when a new commit lands.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Linux only: macOS runners cost far more Actions minutes.
+  build:
+    name: Build (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # raylib builds its GLFW backend from source on Linux and needs the
+      # X11 and OpenGL development headers.
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev \
+            libxi-dev libgl1-mesa-dev
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
